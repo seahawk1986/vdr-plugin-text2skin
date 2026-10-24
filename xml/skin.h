@@ -73,6 +73,7 @@ private:
 	txPoint          mBaseOffset;
 	txSize           mBaseSize;
 	std::string      mName;
+	double           mScale;
 	std::string      mTitle;
 	cxVersion        mVersion;
 
@@ -80,6 +81,8 @@ private:
 
 	cText2SkinI18n  *mI18n; // TODO: should move here completely
 	cText2SkinTheme *mTheme;
+
+	void SetScaledBase(int Width, int Height);
 
 public:
 	cxSkin(const std::string &Name, cText2SkinI18n *I18n, cText2SkinTheme *Theme);
@@ -92,6 +95,7 @@ public:
 	eScreenBase        Base(void)       const { return mBase; }
 	const txPoint     &BaseOffset(void) const { return mBaseOffset; }
 	const txSize      &BaseSize(void)   const { return mBaseSize; }
+	double             Scale(void)      const { return mScale; }
 	const std::string &Name(void)       const { return mName; }
 	const std::string &Title(void)      const { return mTitle; }
 	const cxVersion   &Version(void)    const { return mVersion; }

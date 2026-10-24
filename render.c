@@ -70,7 +70,7 @@ cText2SkinRender::cText2SkinRender(cText2SkinLoader *Loader, cxDisplay::eType Di
 	tArea areas[mDisplay->NumWindows()];
 	for (int i = 0; i < mDisplay->NumWindows(); ++i) {
 		txPoint pos1 = Transform(mDisplay->Windows()[i].pos1);
-		txPoint pos2 = Transform(mDisplay->Windows()[i].pos2);
+		txPoint pos2 = Transform(mDisplay->Windows()[i].pos2, true);
 		areas[i].x1 = mSkin->BaseOffset().x + pos1.x;
 		areas[i].y1 = mSkin->BaseOffset().y + pos1.y;
 		areas[i].x2 = mSkin->BaseOffset().x + pos2.x;
@@ -717,10 +717,22 @@ void cText2SkinRender::DrawScrollbar(const txPoint &Pos, const txSize &Size, con
 	}
 }
 
-txPoint cText2SkinRender::Transform(const txPoint &Pos)
+txPoint cText2SkinRender::Transform(const txPoint &Pos, bool End)
 {
 	txSize base = mRender->mBaseSize;
-	return txPoint(Pos.x < 0 ? base.w + Pos.x : Pos.x, Pos.y < 0 ? base.h + Pos.y : Pos.y);
+	double scale = mRender->mSkin->Scale();
+	txPoint p = Pos;
+	if (scale != 1.0) {
+		// window coordinates are skin pixels, scale them like the objects
+		if (End) {
+			p.x = Pos.x < 0 ? (int)((Pos.x + 1) * scale - 1) : (int)((Pos.x + 1) * scale) - 1;
+			p.y = Pos.y < 0 ? (int)((Pos.y + 1) * scale - 1) : (int)((Pos.y + 1) * scale) - 1;
+		} else {
+			p.x = Pos.x < 0 ? (int)((Pos.x + 1) * scale - 1) : (int)(Pos.x * scale);
+			p.y = Pos.y < 0 ? (int)((Pos.y + 1) * scale - 1) : (int)(Pos.y * scale);
+		}
+	}
+	return txPoint(p.x < 0 ? base.w + p.x : p.x, p.y < 0 ? base.h + p.y : p.y);
 }
 
 bool cText2SkinRender::ItemColor(const std::string &Color, tColor &Result)

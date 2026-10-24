@@ -130,7 +130,7 @@ public:
 
 	// functions for object classes to obtain dynamic item information
 	//static std::string Translate(const std::string &Text);
-	static txPoint Transform(const txPoint &Pos);
+	static txPoint Transform(const txPoint &Pos, bool End = false);
 	static bool ItemColor(const std::string &Color, tColor &Result);
 	static std::string ImagePath(const std::string &Filename);
 	static cxType GetToken(const txToken &Token);

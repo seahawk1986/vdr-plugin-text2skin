@@ -4,6 +4,7 @@
 #include "i18n.h"
 #include <vdr/tools.h>
 #include <vdr/config.h>
+#include <vdr/device.h>
 
 const std::string ScreenBases[] = { "relative", "absolute", "abs1280x720", "abs1920x1080" };
 
@@ -40,9 +41,31 @@ bool cxVersion::Parse(const std::string &Text)
 
 cxSkin::cxSkin(const std::string &Name, cText2SkinI18n *I18n, cText2SkinTheme *Theme):
 		mName(Name),
+		mScale(1.0),
 		mI18n(I18n),
 		mTheme(Theme)
 {
+}
+
+// Skins with a fixed HD base are scaled to the real OSD size of the primary
+// device, e.g. factor 2.0 for a 1920x1080 skin on a 3840x2160 OSD. With an
+// OSD of the base size the factor is 1.0 and nothing changes.
+void cxSkin::SetScaledBase(int Width, int Height)
+{
+	int osdWidth = 0, osdHeight = 0;
+	double aspect = 1.0;
+	cDevice *dev = cDevice::PrimaryDevice();
+	if (dev)
+		dev->GetOsdSize(osdWidth, osdHeight, aspect);
+
+	mScale = 1.0;
+	if (osdWidth > 0 && osdHeight > 0) {
+		double sx = (double)osdWidth / Width;
+		double sy = (double)osdHeight / Height;
+		mScale = sx < sy ? sx : sy;
+	}
+	mBaseOffset = txPoint(0, 0);
+	mBaseSize   = txSize((int)(Width * mScale + 0.5), (int)(Height * mScale + 0.5));
 }
 
 void cxSkin::SetBase(eScreenBase Base)
@@ -52,23 +75,23 @@ void cxSkin::SetBase(eScreenBase Base)
 
 	switch (mBase) {
 	case relative:
+		mScale      = 1.0;
 		mBaseOffset = txPoint(Setup.OSDLeft, Setup.OSDTop);
 		mBaseSize   = txSize(Setup.OSDWidth, Setup.OSDHeight);
 		break;
 
 	case absolute:
+		mScale      = 1.0;
 		mBaseOffset = txPoint(0, 0);
 		mBaseSize   = txSize(720, 576); //XXX
 		break;
 
 	case abs1280x720:
-		mBaseOffset = txPoint(0, 0);
-		mBaseSize   = txSize(1280, 720); //XXX
+		SetScaledBase(1280, 720);
 		break;
 
 	case abs1920x1080:
-		mBaseOffset = txPoint(0, 0);
-		mBaseSize   = txSize(1920, 1080); //XXX
+		SetScaledBase(1920, 1080);
 		break;
 
 	default:

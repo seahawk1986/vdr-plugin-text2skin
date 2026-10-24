@@ -150,10 +150,21 @@ const cFont *cxObject::Font(void) const
 {
 	const cFont *font;
 
-	if ((font = cText2SkinFont::Load(mFontFace, mFontSize)) != NULL)
+	// font sizes of skins with a scaled HD base grow with the OSD
+	int size = mFontSize;
+	if (size > 0 && mSkin->Scale() != 1.0)
+		size = (int)(size * mSkin->Scale() + 0.5);
+
+	if ((font = cText2SkinFont::Load(mFontFace, size)) != NULL)
 		return font;
 
 	return cFont::GetFont(fontOsd);
+}
+
+// End coordinates are inclusive: with factor 2.0 pixel 1919 ends at 3839.
+static inline int ScaleEnd(int Pos, double Scale)
+{
+	return Pos < 0 ? (int)((Pos + 1) * Scale - 1) : (int)((Pos + 1) * Scale) - 1;
 }
 
 txPoint cxObject::Pos(const txPoint &BaseOffset, const txSize &BaseSize, const txSize &VirtSize) const
@@ -161,8 +172,9 @@ txPoint cxObject::Pos(const txPoint &BaseOffset, const txSize &BaseSize, const t
 	txPoint bOffset = BaseOffset.x < 0 ? mSkin->BaseOffset() : BaseOffset;
 	txSize  bSize   = BaseSize.w   < 0 ? mSkin->BaseSize()   : BaseSize;
 
-	double scale_x = VirtSize.w > 0 ? (double)BaseSize.w / VirtSize.w : 1.0,
-	       scale_y = VirtSize.h > 0 ? (double)BaseSize.h / VirtSize.h : 1.0;
+	// without a virtual size the coordinates are skin pixels, scaled like the skin
+	double scale_x = VirtSize.w > 0 ? (double)BaseSize.w / VirtSize.w : mSkin->Scale(),
+	       scale_y = VirtSize.h > 0 ? (double)BaseSize.h / VirtSize.h : mSkin->Scale();
 
 	int x1 = mPos1.x < 0 ? (int)((mPos1.x + 1) * scale_x - 1) : (int)(mPos1.x * scale_x);
 	int y1 = mPos1.y < 0 ? (int)((mPos1.y + 1) * scale_x - 1) : (int)(mPos1.y * scale_y);
@@ -176,13 +188,20 @@ txSize cxObject::Size(const txPoint &BaseOffset, const txSize &BaseSize, const t
 	//txPoint bOffset = BaseOffset.x < 0 ? mSkin->BaseOffset() : BaseOffset;
 	txSize  bSize   = BaseSize.w   < 0 ? mSkin->BaseSize()   : BaseSize;
 
-	double scale_x = VirtSize.w > 0 ? (double)BaseSize.w / VirtSize.w : 1.0,
-	       scale_y = VirtSize.h > 0 ? (double)BaseSize.h / VirtSize.h : 1.0;
+	double scale_x = VirtSize.w > 0 ? (double)BaseSize.w / VirtSize.w : mSkin->Scale(),
+	       scale_y = VirtSize.h > 0 ? (double)BaseSize.h / VirtSize.h : mSkin->Scale();
 
 	int x1 = mPos1.x < 0 ? (int)((mPos1.x + 1) * scale_x - 1) : (int)(mPos1.x * scale_x);
 	int y1 = mPos1.y < 0 ? (int)((mPos1.y + 1) * scale_x - 1) : (int)(mPos1.y * scale_y);
 	int x2 = mPos2.x < 0 ? (int)((mPos2.x + 1) * scale_x - 1) : (int)(mPos2.x * scale_x);
 	int y2 = mPos2.y < 0 ? (int)((mPos2.y + 1) * scale_x - 1) : (int)(mPos2.y * scale_y);
+
+	// skin scaling: the end pixel covers the whole scaled pixel, a point
+	// (image with x/y only) stays a point and keeps its natural size
+	if (VirtSize.w <= 0 && scale_x != 1.0 && mPos2.x != mPos1.x)
+		x2 = ScaleEnd(mPos2.x, scale_x);
+	if (VirtSize.h <= 0 && scale_y != 1.0 && mPos2.y != mPos1.y)
+		y2 = ScaleEnd(mPos2.y, scale_y);
 
 	txPoint p1(x1 < 0 ? bSize.w + x1 : x1,
 	           y1 < 0 ? bSize.h + y1 : y1);
