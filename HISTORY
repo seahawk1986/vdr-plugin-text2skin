@@ -25,6 +25,8 @@ VDR Plugin 'text2skin' Revision History
   HE-AAC and AC-4 audio.
 - {FreeDiskSpace} as time uses the free recording time from VDR.
 - Skip reruns without event or on unknown channels (crashed).
+- Drop cached tokens as soon as a display gets new data, the channel info
+  could keep the previous channel when zapping fast.
 - Free the window bitmaps of a display.
 - GraphicsMagick is the default image library.
 
