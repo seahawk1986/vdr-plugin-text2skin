@@ -68,6 +68,11 @@ private:
 	float               mTabScale;
 	bool                mTabScaleSet;
 
+	// a VDR list was busy, redraw everything with the next update
+	bool                mRetryAll;
+
+	cxType GetDiskToken(const txToken &Token);
+
 protected:
 	// Update thread
 	void UpdateLock(void) { mDoUpdateMutex.Lock(); }
@@ -134,6 +139,15 @@ public:
 	static bool ItemColor(const std::string &Color, tColor &Result);
 	static std::string ImagePath(const std::string &Filename);
 	static cxType GetToken(const txToken &Token);
+
+	// a VDR list was busy (see cListReader): draw again after LIST_LOCK_RETRY
+	static void RetryLater(void);
+	static cxType Busy(void) {
+		RetryLater();
+		cxType res = false;
+		res.SetUpdate(LIST_LOCK_RETRY); // keeps it out of the token cache
+		return res;
+	}
 
 	// provide scrollbar in every menu
 	struct tMenuScrollbar {

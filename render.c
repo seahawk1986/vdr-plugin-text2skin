@@ -41,7 +41,8 @@ cText2SkinRender::cText2SkinRender(cText2SkinLoader *Loader, cxDisplay::eType Di
 		mFirst(true),
 		mBaseSize(),
 		mTabScale(1.0),
-		mTabScaleSet(false)
+		mTabScaleSet(false),
+		mRetryAll(false)
 {
 	if (mDisplay == NULL) {
 		esyslog("ERROR: text2skin: display for %s missing", cxDisplay::GetType(Display).c_str());
@@ -165,6 +166,13 @@ void cText2SkinRender::Update(void)
 #ifdef BENCH
 	fprintf(stderr, "mDirty = 0x%04x\n", mDirty);
 #endif
+	if (mRetryAll) {
+		// a VDR list was busy last time: fetch all tokens again, draw everything
+		mRetryAll = false;
+		mTokenCache.clear();
+		mDirty |= (1<<cxRefresh::all);
+	}
+
 	if (mFirst) {
 		mDirty = (1<<cxRefresh::all);
 		mFirst = false;
@@ -833,37 +841,16 @@ cxType cText2SkinRender::GetToken(const txToken &Token)
 cxType cText2SkinRender::GetTokenData(const txToken &Token)
 {
 	switch (Token.Type) {
-	case tFreeDiskSpace: {
-			int FreeMB;
-			cVideoDirectory::VideoDiskSpace(&FreeMB);
-			Dprintf("FreeMB: %d, attrib type is %d\n", FreeMB,Token.Attrib.Type);
-			if (Token.Attrib.Type == aString && Token.Attrib.Text.length() > 0) {
-				// free recording time from VDR, based on the data rate of the
-				// existing recordings instead of a fixed SD estimate
-				int state = -1;
-				cVideoDiskUsage::HasChanged(state);
-				return (cxType)DurationType(cVideoDiskUsage::FreeMinutes() * 60,
-				                            Token.Attrib.Text);
-			}
-			return (cxType)FreeMB;
-		}
-
-	case tUsedDiskSpace: {
-			int FreeMB, UsedMB;
-			cVideoDirectory::VideoDiskSpace(&FreeMB, &UsedMB);
-			return (cxType)UsedMB;
-		}
-
-	case tTotalDiskSpace: {
-			int FreeMB, UsedMB;
-			cVideoDirectory::VideoDiskSpace(&FreeMB, &UsedMB);
-			return (cxType)FreeMB+UsedMB;
-		}
-		
-	case tDiskUsage:	{
-			cVideoDiskUsage::ForceCheck();
-			string DiskUsage = string(cString::sprintf("%s", *cVideoDiskUsage::String()));
-			return DiskUsage;
+	case tFreeDiskSpace:
+	case tUsedDiskSpace:
+	case tTotalDiskSpace:
+	case tDiskUsage: {
+			// VDR's disk usage functions lock the recordings lists
+			cListReader<cRecordings> recordings(cRecordings::GetRecordingsRead);
+			cListReader<cRecordings> deleted(cRecordings::GetDeletedRecordingsRead);
+			if (!recordings || !deleted)
+				return Busy();
+			return GetDiskToken(Token);
 		}
 
 	case tVdrVersion:	{
@@ -904,5 +891,55 @@ cxType cText2SkinRender::GetTokenData(const txToken &Token)
 		return cxType(cText2SkinDisplayTracks::ChannelName(cDevice::PrimaryDevice()->GetAudioChannel()));
 
 	default:             return Text2SkinStatus.GetTokenData(Token);
+	}
+}
+
+void cText2SkinRender::RetryLater(void)
+{
+	if (mRender == NULL)
+		return;
+	mRender->mRetryAll = true;
+	if (mRender->mUpdateIn == 0 || mRender->mUpdateIn > LIST_LOCK_RETRY)
+		mRender->mUpdateIn = LIST_LOCK_RETRY;
+}
+
+// the caller holds the recordings lists
+cxType cText2SkinRender::GetDiskToken(const txToken &Token)
+{
+	switch (Token.Type) {
+	case tFreeDiskSpace: {
+			int FreeMB;
+			cVideoDirectory::VideoDiskSpace(&FreeMB);
+			Dprintf("FreeMB: %d, attrib type is %d\n", FreeMB,Token.Attrib.Type);
+			if (Token.Attrib.Type == aString && Token.Attrib.Text.length() > 0) {
+				// free recording time from VDR, based on the data rate of the
+				// existing recordings instead of a fixed SD estimate
+				int state = -1;
+				cVideoDiskUsage::HasChanged(state);
+				return (cxType)DurationType(cVideoDiskUsage::FreeMinutes() * 60,
+				                            Token.Attrib.Text);
+			}
+			return (cxType)FreeMB;
+		}
+
+	case tUsedDiskSpace: {
+			int FreeMB, UsedMB;
+			cVideoDirectory::VideoDiskSpace(&FreeMB, &UsedMB);
+			return (cxType)UsedMB;
+		}
+
+	case tTotalDiskSpace: {
+			int FreeMB, UsedMB;
+			cVideoDirectory::VideoDiskSpace(&FreeMB, &UsedMB);
+			return (cxType)FreeMB+UsedMB;
+		}
+		
+	case tDiskUsage:	{
+			cVideoDiskUsage::ForceCheck();
+			string DiskUsage = string(cString::sprintf("%s", *cVideoDiskUsage::String()));
+			return DiskUsage;
+		}
+
+	default:             return false;
 	}
 }

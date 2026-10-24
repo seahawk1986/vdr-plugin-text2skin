@@ -1134,10 +1134,17 @@ cxType cText2SkinDisplayMenu::GetTokenData(const txToken &Token)
 	case tPresentDescription:
 		if (mEvent.valid) {
 			if (ExtPresentDescription == "") {
+				// The timers give the aux info, the reruns come from epgsearch,
+				// which locks channels and schedules itself. Holding them here
+				// first means epgsearch can't wait for VDR (see cListReader).
+				cListReader<cTimers> Timers(cTimers::GetTimersRead);
+				cListReader<cChannels> Channels(cChannels::GetChannelsRead);
+				cListReader<cSchedules> Schedules(cSchedules::GetSchedulesRead);
+				if (!Timers || !Channels || !Schedules)
+					return Busy();
 				// find corresponding timer
 				std::string aux;
 				bool auxFound = false;
-				LOCK_TIMERS_READ;
 				for (const cTimer *tim = Timers->First(); tim; tim = Timers->Next(tim)) {
 					// compares pointers only, the timer's event is not read
 					if (tim->Event() == mEventPtr) {
@@ -1180,7 +1187,9 @@ cxType cText2SkinDisplayMenu::GetTokenData(const txToken &Token)
 	case tChannelServiceReference:
 		// extended EPG or recording info
 		if (mEvent.valid || mRecording.valid) {
-			LOCK_CHANNELS_READ;
+			cListReader<cChannels> Channels(cChannels::GetChannelsRead);
+			if (!Channels)
+				return Busy();
 			const cChannel *channel = Channels->GetByChannelID(mEvent.valid ? mEvent.channelID : mRecording.channelID, true);
 			if (channel == NULL)
 				return false;
@@ -1243,8 +1252,15 @@ cxType cText2SkinDisplayMenu::GetTokenData(const txToken &Token)
 
 	case tRecordingDescription:
 		if (mRecording.valid) {
-			if (ExtRecordingDescription == "")
+			if (ExtRecordingDescription == "") {
+				// reruns from epgsearch, see tPresentDescription
+				cListReader<cTimers> Timers(cTimers::GetTimersRead);
+				cListReader<cChannels> Channels(cChannels::GetChannelsRead);
+				cListReader<cSchedules> Schedules(cSchedules::GetSchedulesRead);
+				if (!Timers || !Channels || !Schedules)
+					return Busy();
 				ExtRecordingDescription = AddExtInfoToDescription(mRecording.title.c_str(), mRecording.shortText.c_str(), mRecording.description.c_str(), Text2SkinSetup.ShowAux && !mRecording.aux.empty() ? mRecording.aux.c_str() : NULL, Text2SkinSetup.StripAux);
+			}
 			return (cxType)ExtRecordingDescription;
 		} else
 			return (cxType)false;

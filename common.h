@@ -10,6 +10,32 @@
 #include <vdr/config.h>
 #include <vdr/epg.h>
 #include <vdr/recording.h>
+#include <vdr/timers.h>
+#include <vdr/channels.h>
+#include <vdr/thread.h>
+
+// The update thread must never wait for VDR's global lists: VDR may hold one
+// of them for writing while it calls the display and waits for the update
+// thread, e.g. when a timer starts a recording and reports it. So the update
+// thread tries a short time and draws again a little later if a list is busy.
+#define LIST_LOCK_TIMEOUT 20  // ms
+#define LIST_LOCK_RETRY   100 // ms
+
+// Read lock on one of VDR's lists for the scope of the object, e.g.
+//   cListReader<cTimers> Timers(cTimers::GetTimersRead);
+//   if (!Timers) ... busy ...
+template<class T> class cListReader {
+private:
+	cStateKey mKey;
+	const T  *mList;
+	cListReader(const cListReader &);
+	cListReader &operator=(const cListReader &);
+public:
+	cListReader(const T *(*Get)(cStateKey &, int)): mList(Get(mKey, LIST_LOCK_TIMEOUT)) {}
+	~cListReader() { if (mList) mKey.Remove(); }
+	operator bool(void) const { return mList != NULL; }
+	const T *operator->(void) const { return mList; }
+};
 
 #if defined(DEBUG) || defined(BENCH)
 #	ifdef DEBUG

@@ -109,26 +109,24 @@ void cText2SkinStatus::Replaying(const cControl* /*Control*/, const char *Name,
 void cText2SkinStatus::Recording(const cDevice *Device, const char *Name,
 								 const char *FileName, bool On)
 {
-	if (mRender != NULL)
-		mRender->UpdateLock();
+	// VDR may hold the timers for writing here while the update thread waits
+	// for them, so collect first and take the display lock only to flush
+	tRecordings recordings;
+	{
+		LOCK_TIMERS_READ;
+		for (const cTimer *t = Timers->First(); t != NULL; t = Timers->Next(t)) {
+			if (t->Recording())
+				recordings.push_back(t->File());
+		}
+	}
 
 	mRecordingsLock.Lock();
-	mRecordings.clear();
-#if APIVERSNUM < 20301
-	cTimer *t = Timers.First();
-	for (; t != NULL; t = Timers.Next(t)) {
-#else
-	LOCK_TIMERS_READ;
-	const cTimer *t = Timers->First();
-	for (; t != NULL; t = Timers->Next(t)) {
-#endif
-		if (t->Recording())
-			mRecordings.push_back(t->File());
-	}
+	mRecordings.swap(recordings);
 	mRecordingsLock.Unlock();
 
 	if (mRender != NULL) {
 		Dprintf("\nFlushing from cStatus\n\n");
+		mRender->UpdateLock();
 		mRender->Flush(true);
 		mRender->UpdateUnlock();
 	}
@@ -190,48 +188,43 @@ void cText2SkinStatus::OsdItem(const char *Text, int Index)
 
 void cText2SkinStatus::UpdateEvents(void)
 {
-	if (mRender->mUpdate.events) {
-		mRender->mUpdate.events = false;
+	if (!mRender->mUpdate.events)
+		return;
 
-		mEvents.Clear();
-#if APIVERSNUM < 20301
-		Timers.IncBeingEdited();
-#else
-		LOCK_TIMERS_READ;
-#endif
-
-#if APIVERSNUM < 20301
-		for (cTimer *tim = Timers.First(); tim; tim = Timers.Next(tim)) {
-#else
-		for (const cTimer *tim = Timers->First(); tim; tim = Timers->Next(tim)) {
-#endif
-			if (tim->HasFlags(tfActive)) {
-				int i = 0;
-				cTimer dummy;
-				dummy = *tim;
-
-				do {
-					mEvents.Add(new tEvent(&dummy));
-
-					if (!dummy.IsSingleEvent()) { // add 4 additional rep. timer
-						int j = 0;
-						do {
-							j++; // just to avoid a endless loop
-							dummy.Skip();
-							dummy.Matches(); // Refresh start- and end-time
-						} while (!dummy.DayMatches(dummy.StartTime()) && (j < 7));
-					}
-
-					i++;
-				} while (!dummy.IsSingleEvent() && i < 5);
-			}
-		}
-
-#if APIVERSNUM < 20301
-		Timers.DecBeingEdited();
-#endif
-		mEvents.Sort();
+	// runs in the update thread, see cListReader
+	cListReader<cTimers> Timers(cTimers::GetTimersRead);
+	cListReader<cChannels> Channels(cChannels::GetChannelsRead);
+	if (!Timers || !Channels) {
+		// keep the old list until the next try
+		cText2SkinRender::RetryLater();
+		return;
 	}
+
+	mRender->mUpdate.events = false;
+	mEvents.Clear();
+	for (const cTimer *tim = Timers->First(); tim; tim = Timers->Next(tim)) {
+		if (tim->HasFlags(tfActive)) {
+			int i = 0;
+			cTimer dummy;
+			dummy = *tim;
+
+			do {
+				mEvents.Add(new tEvent(&dummy));
+
+				if (!dummy.IsSingleEvent()) { // add 4 additional rep. timer
+					int j = 0;
+					do {
+						j++; // just to avoid a endless loop
+						dummy.Skip();
+						dummy.Matches(); // Refresh start- and end-time
+					} while (!dummy.DayMatches(dummy.StartTime()) && (j < 7));
+				}
+
+				i++;
+			} while (!dummy.IsSingleEvent() && i < 5);
+		}
+	}
+	mEvents.Sort();
 }
 
 cxType cText2SkinStatus::GetTokenData(const txToken &Token)
