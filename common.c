@@ -356,7 +356,8 @@ std::string AddExtInfoToDescription(const char *Title, const char *ShortText, co
 				for (Epgsearch_searchresults_v1_0::cServiceSearchResult *r =
 				list->First(); r && i < 5; r = list->Next(r)) {
 					i++;
-                                        if (r->event && r->event->StartTime() < time(NULL)) continue;
+					if (!r->event || r->event->StartTime() < time(NULL))
+						continue;
 					std::stringstream buf;
 #if APIVERSNUM < 20301
 					cChannel *channel = Channels.GetByChannelID(r->event->ChannelID(), true, true);
@@ -364,7 +365,8 @@ std::string AddExtInfoToDescription(const char *Title, const char *ShortText, co
 					LOCK_CHANNELS_READ;
 					const cChannel *channel = Channels->GetByChannelID(r->event->ChannelID(), true, true);
 #endif
-					if (channel)
+					if (!channel)
+						continue;
 					buf << "\n";
 					buf << " - ";
 					buf << channel->ShortName(true);
