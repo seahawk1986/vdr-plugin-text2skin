@@ -78,6 +78,13 @@ eOsdError cText2SkinScreen::SetAreas(const tArea *Areas, int NumAreas)
 	return oeOk;
 }
 
+void cText2SkinScreen::Touch(int x1, int y1, int x2, int y2)
+{
+	for (int i = 0; i < mNumRegions; ++i)
+		if (mRegions[i]->Intersects(x1, y1, x2, y2))
+			mTouched[i] = true;
+}
+
 void cText2SkinScreen::Clear(void)
 {
 	if (mCanvas) {
@@ -85,6 +92,7 @@ void cText2SkinScreen::Clear(void)
 		return;
 	}
 	for (int i = 0; i < mNumRegions; ++i) {
+		mTouched[i] = true;
 		mRegions[i]->Reset();
 		mRegions[i]->Clean();
 		mRegions[i]->DrawRectangle(mRegions[i]->X0(), mRegions[i]->Y0(), mRegions[i]->X0() + mRegions[i]->Width() - 1, mRegions[i]->Y0() + mRegions[i]->Height() - 1, clrTransparent);
@@ -128,6 +136,7 @@ void cText2SkinScreen::DrawBitmap(int x, int y, const cBitmap &Bitmap, const tCo
 		BlendPixels(x, y, Bitmap.Width(), Bitmap.Height(), NULL, &Bitmap, ColorMask);
 		return;
 	}
+	Touch(x, y, x + Bitmap.Width() - 1, y + Bitmap.Height() - 1);
 	for (int i = 0; i < mNumRegions; ++i)
 		//DrawBitmapOverlay(*mRegions[i], x, y, (cBitmap&)Bitmap, ColorMask);
 		mRegions[i]->DrawBitmap(x, y, Bitmap);
@@ -145,6 +154,7 @@ void cText2SkinScreen::DrawRectangle(int x1, int y1, int x2, int y2, tColor Colo
 		mCanvas->DrawRectangle(cRect(x1 - mOrigin.X(), y1 - mOrigin.Y(), x2 - x1 + 1, y2 - y1 + 1), Color);
 		return;
 	}
+	Touch(x1, y1, x2, y2);
 	for (int i = 0; i < mNumRegions; ++i)
 		mRegions[i]->DrawRectangle(x1, y1, x2, y2, Color);
 }
@@ -157,6 +167,7 @@ void cText2SkinScreen::DrawText(int x, int y, const char *s, tColor ColorFg, tCo
 		mCanvas->DrawText(cPoint(x - mOrigin.X(), y - mOrigin.Y()), s, ColorFg, ColorBg, Font, Width, Height, Alignment);
 		return;
 	}
+	Touch(x, y, x + (Width ? Width : Font->Width(s)) - 1, y + (Height ? Height : Font->Height()) - 1);
 	for (int i = 0; i < mNumRegions; ++i)
 		mRegions[i]->DrawText(x, y, s, ColorFg, ColorBg, Font, Width, Height, Alignment);
 }
@@ -167,6 +178,7 @@ void cText2SkinScreen::DrawEllipse(int x1, int y1, int x2, int y2, tColor Color,
 		mCanvas->DrawEllipse(cRect(x1 - mOrigin.X(), y1 - mOrigin.Y(), x2 - x1 + 1, y2 - y1 + 1), Color, Quadrants);
 		return;
 	}
+	Touch(x1, y1, x2, y2);
 	for (int i = 0; i < mNumRegions; ++i)
 		mRegions[i]->DrawEllipse(x1, y1, x2, y2, Color, Quadrants);
 }
@@ -177,6 +189,7 @@ void cText2SkinScreen::DrawSlope(int x1, int y1, int x2, int y2, tColor Color, i
 		mCanvas->DrawSlope(cRect(x1 - mOrigin.X(), y1 - mOrigin.Y(), x2 - x1 + 1, y2 - y1 + 1), Color, Type);
 		return;
 	}
+	Touch(x1, y1, x2, y2);
 	for (int i = 0; i < mNumRegions; ++i)
 		mRegions[i]->DrawSlope(x1, y1, x2, y2, Color, Type);
 }
@@ -204,9 +217,14 @@ void cText2SkinScreen::Flush(void)
 	}
 
 	for (int i = 0; i < mNumRegions; ++i) {
+		// windows without drawing since the last flush need no copy
+		if (!mTouched[i])
+			continue;
 		if (mOffScreen)
 			mScreen->DrawBitmap(mRegions[i]->X0(), mRegions[i]->Y0(), *mRegions[i]);
-		mOsd->DrawBitmap(mRegions[i]->X0(), mRegions[i]->Y0(), *mRegions[i]);
+		else
+			mOsd->DrawBitmap(mRegions[i]->X0(), mRegions[i]->Y0(), *mRegions[i]);
+		mTouched[i] = false;
 	}
 	if (!mOffScreen)
 		mOsd->Flush();

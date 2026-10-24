@@ -25,8 +25,13 @@ private:
 	cOsd    *mOsd;
 	cBitmap *mScreen;
 	cBitmap *mRegions[MAXOSDAREAS];
+	bool     mTouched[MAXOSDAREAS];
 	bool     mOffScreen;
 	int      mNumRegions;
+
+	// palette mode: remember the windows a drawing operation reaches, Flush()
+	// copies only those (cBitmap's dirty area misses palette changes)
+	void Touch(int x1, int y1, int x2, int y2);
 
 	// true colour mode: one OSD area around all windows, drawn via mCanvas
 	cText2SkinCanvas *mCanvas;
