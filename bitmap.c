@@ -194,10 +194,15 @@ bool cText2SkinBitmap::LoadNonXpm(const char *Filename, int height, int width, i
 		for (it = images.begin(); it != images.end(); ++it) {
 			// scale with a Lanczos filter instead of sample() (nearest neighbour,
 			// blocky when enlarged), and before quantizing, so the filter
-			// cannot add colours beyond the requested count
+			// cannot add colours beyond the requested count. A palette without
+			// colour reduction has no room for the blended colours of a filter,
+			// the image would lose its colours, so it keeps sample() there.
 			if (height != 0 || width != 0) {
-				(*it).filterType(LanczosFilter);
-				(*it).zoom(Geometry(width,height));
+				if (TrueColor || colors != 0) {
+					(*it).filterType(LanczosFilter);
+					(*it).zoom(Geometry(width,height));
+				} else
+					(*it).sample(Geometry(width,height));
 			}
 			if (colors != 0){
 				(*it).opacity(OpaqueOpacity);
