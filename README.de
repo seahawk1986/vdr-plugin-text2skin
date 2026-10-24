@@ -2,9 +2,9 @@ Dies ist ein "plugin" für den Video Disk Recorder (VDR).
 
 Geschrieben von:               Sascha Volkenandt <sascha@akv-soft.de>
 
-Projekthomepage:               http://linux.kompiliert.net/index.php?view=text2skin
+Gepflegt von:                  Frank Neumann <fnu@vdr-portal.de>
 
-Letzte Version verfügbar auf: http://projects.vdr-developer.org/projects/show/plg-text2skin
+Letzte Version verfügbar auf: https://github.com/vdr-projects/vdr-plugin-text2skin
 
 Siehe COPYING für Linzensierungsinformationen.
 
@@ -24,10 +24,12 @@ möchte.
 Voraussetzungen:
 ----------------
 
-Um andere Bildformate als einfaches XPM zu laden, brauchen Sie eine 
+VDR 2.4.0 oder neuer.
+
+Um andere Bildformate als einfaches XPM zu laden, brauchen Sie eine
 Grafikbibliothek. Es werden drei Bibliotheken unterstützt, aus der Sie eine
-zu benutzende wählen können. Dies sind ImageMagick, GraphicsMagick oder
-Imlib2, wobei ImageMagick standardmäßig herangezogen wird. Sie können mit
+zu benutzende wählen können. Dies sind GraphicsMagick, ImageMagick oder
+Imlib2, wobei GraphicsMagick standardmäßig herangezogen wird. Sie können mit
 der Makefile-Variable IMAGELIB beeinflussen, welche Bibliothek (wenn überhaupt
 eine) genutzt werden soll. Hier ist eine Übersicht über Möglichkeiten und
 Nachteile jeder möglichen Lösung:
@@ -36,8 +38,10 @@ Keine Bibliothek
  - Sie können nur XPM Dateien laden
  - XPMs haben weder Teiltransparenzen noch Alphakanäle
 
-ImageMagick oder GraphicsMagick
+GraphicsMagick oder ImageMagick
  + Sie können viele verschiedene Bildformate laden einschließlich Animationen
+ - ImageMagick nur bis Version 6, die Magick++-Schnittstelle von Version 7
+   ist eine andere
 
 Imlib2
  + Sie können viele verschiedene Bildformate laden
@@ -58,13 +62,10 @@ Installation:
 -------------
 
 Installieren Sie text2skin wie jedes andere Plugin. In diesem Beispiel nehme
-ich an Sie sind in den Ordner gewechselt, in dem VDR's Quelltext liegt, und
-Sie wollen Version 1.2 des Plugins installieren.
+ich an Sie sind in den Ordner gewechselt, in dem VDR's Quelltext liegt.
 
 root@linux # cd PLUGINS/src
-root@linux # wget http://projects.vdr-developer.org/attachments/download/112/vdr-text2skin-1.2.tgz
-root@linux # tar -xzf vdr-text2skin-1.2.tgz
-root@linux # ln -s text2skin-1.2 text2skin
+root@linux # git clone https://github.com/vdr-projects/vdr-plugin-text2skin.git text2skin
 root@linux # cd ../..
 root@linux # make plugins
 root@linux # ./vdr -P text2skin

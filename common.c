@@ -256,52 +256,6 @@ const char *EventType(uint Number)
 	return buffer;
 }
 
-bool StoppedTimer(const char *Name)
-{
-#if APIVERSNUM < 20301
-	cTimer *timer = Timers.First();
-#else
-	LOCK_TIMERS_READ;
-	const cTimer *timer = Timers->First();
-#endif
-	while (timer) {
-		if (strcmp(Name, timer->File()) == 0)
-			break;
-#if APIVERSNUM < 20301
-		timer = Timers.Next(timer);
-#else
-		timer = Timers->Next(timer);
-#endif
-	}
-	return timer == NULL || !timer->Recording();
-}
-
-const cRecording *GetRecordingByName(const char *Name)
-{
-#if APIVERSNUM < 20301
-	const cRecording *rec = Recordings.First();
-	for (; rec != NULL; rec = Recordings.Next(rec)) {
-#else
-	LOCK_RECORDINGS_READ;
-	const cRecording *rec = Recordings->First();
-	for (; rec != NULL; rec = Recordings->Next(rec)) {
-#endif
-		if (strcmp(rec->Name(), Name) == 0)
-			return rec;
-	}
-	return NULL;
-}
-
-const cRecording *GetRecordingByFileName(const char *FileName)
-{
-#if APIVERSNUM < 20301
-	return (FileName) ? Recordings.GetByName(FileName) : NULL;
-#else
-	LOCK_RECORDINGS_READ;
-	return (FileName) ? Recordings->GetByName(FileName) : NULL;
-#endif
-}
-
 int GetFrontendSTR(void)
 {
 	int SignalStrength = cDevice::ActualDevice()->SignalStrength();
@@ -348,6 +302,8 @@ bool GetFrontendHasSignal(void)
 	return value & FE_HAS_SIGNAL;
 }
 
+// Called in the update thread, which holds timers, channels and schedules
+// (see cListReader), so epgsearch and the channel lookup can't wait for VDR.
 std::string AddExtInfoToDescription(const char *Title, const char *ShortText, const char *Description, const char *Aux, bool StripAux)
 {
 	// prepare the description
@@ -382,12 +338,8 @@ std::string AddExtInfoToDescription(const char *Title, const char *ShortText, co
 					if (!r->event || r->event->StartTime() < time(NULL))
 						continue;
 					std::stringstream buf;
-#if APIVERSNUM < 20301
-					cChannel *channel = Channels.GetByChannelID(r->event->ChannelID(), true, true);
-#else
-					LOCK_CHANNELS_READ;
+					LOCK_CHANNELS_READ; // never waits, the caller holds the channels
 					const cChannel *channel = Channels->GetByChannelID(r->event->ChannelID(), true, true);
-#endif
 					if (!channel)
 						continue;
 					buf << "\n";
@@ -434,12 +386,6 @@ std::string AddExtInfoToDescription(const char *Title, const char *ShortText, co
 	}
 
 	return desc.str();
-}
-
-int GetRecordingSize(const char *FileName)
-{
-	const cRecording *rec = GetRecordingByFileName(FileName);
-	return (rec) ? DirSizeMB(FileName) : 0;
 }
 
 int GetRecordingLength(const char *FileName, double FramesPerSecond, bool IsPesRecording)

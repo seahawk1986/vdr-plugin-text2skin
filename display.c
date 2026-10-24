@@ -769,7 +769,6 @@ cText2SkinDisplayMenu::~cText2SkinDisplayMenu()
 void cText2SkinDisplayMenu::Clear(void)
 {
 	if (mFallbackDisplay != NULL) {
-		printf("fallback clear\n");
 		mFallbackDisplay->Clear();
 		return;
 	}
@@ -792,7 +791,6 @@ void cText2SkinDisplayMenu::Clear(void)
 void cText2SkinDisplayMenu::SetTitle(const char *Title)
 {
 	if (mFallbackDisplay != NULL) {
-		printf("fallback title\n");
 		mFallbackDisplay->SetTitle(Title);
 		return;
 	}
@@ -836,7 +834,6 @@ void cText2SkinDisplayMenu::SetButtons(const char *Red, const char *Green, const
 void cText2SkinDisplayMenu::SetMessage(eMessageType Type, const char *Text)
 {
 	if (mFallbackDisplay != NULL) {
-		printf("fallback message\n");
 		mFallbackDisplay->SetMessage(Type, Text);
 		return;
 	}

@@ -2,9 +2,9 @@ This is a "plugin" for the Video Disk Recorder (VDR).
 
 Written by:                  Sascha Volkenandt <sascha@akv-soft.de>
 
-Project's homepage:          http://linux.kompiliert.net/index.php?view=text2skin
+Maintained by:               Frank Neumann <fnu@vdr-portal.de>
 
-Latest version available at: http://projects.vdr-developer.org/projects/show/plg-text2skin
+Latest version available at: https://github.com/vdr-projects/vdr-plugin-text2skin
 
 See the file COPYING for license information.
 
@@ -23,9 +23,11 @@ as the author of the skin wishes.
 Prerequisites:
 --------------
 
-For loading images in format other than simple XPM, you will need an image 
-library. You can choose between three supported libraries, ImageMagick,
-GraphicsMagick or Imlib2, of which the first one is the default. You can
+VDR 2.4.0 or newer.
+
+For loading images in format other than simple XPM, you will need an image
+library. You can choose between three supported libraries, GraphicsMagick,
+ImageMagick or Imlib2, of which the first one is the default. You can
 specify which library to use (if any) using the IMAGELIB variable in Makefile.
 Here is an overview of the advantages and drawbacks of each alternative:
 
@@ -33,8 +35,9 @@ No library
  - you can only load XPM files
  - XPMs don't support partial transparency / alpha channels
 
-ImageMagick and GraphicsMagick
+GraphicsMagick and ImageMagick
  + you can load many different image types including animations
+ - ImageMagick only up to version 6, the Magick++ API of version 7 differs
 
 Imlib2
  + you can load many different image types
@@ -53,13 +56,10 @@ Installation:
 -------------
 
 Install text2skin like any other plugin. In this example I assume that you have
-changed to the folder where the VDR source code is located, and that it is 
-version 1.2 of the plugin you wish to install.
+changed to the folder where the VDR source code is located.
 
 root@linux # cd PLUGINS/src
-root@linux # wget http://projects.vdr-developer.org/attachments/download/112/vdr-text2skin-1.2.tgz
-root@linux # tar -xzf vdr-text2skin-1.2.tgz
-root@linux # ln -s text2skin-1.2 text2skin
+root@linux # git clone https://github.com/vdr-projects/vdr-plugin-text2skin.git text2skin
 root@linux # cd ../..
 root@linux # make plugins
 root@linux # ./vdr -P text2skin

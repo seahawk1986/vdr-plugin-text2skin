@@ -6,8 +6,9 @@ STRIP ?= /bin/true
 # Text2Skin if you use Imlib2! (That's why I actually implemented ImageMagick)
 # TBD: is this still true?
 
-# External image lib to use: imagemagick, graphicsmagick, imlib2 or none
-IMAGELIB = imagemagick
+# External image lib to use: graphicsmagick, imagemagick, imlib2 or none.
+# imagemagick needs ImageMagick 6, the Magick++ API of ImageMagick 7 differs.
+IMAGELIB ?= graphicsmagick
 
 
 # DO NOT EDIT BELOW THIS LINE UNLESS YOU KNOW WHAT YOU'RE DOING

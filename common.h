@@ -158,15 +158,11 @@ const char *ChannelServiceReference(const cChannel *Channel, int Number);
 const char *EventType(uint Number);
 //const char *ChannelBouquet(const cChannel *Channel, int Number);
 
-bool StoppedTimer(const char *Name);
-const cRecording *GetRecordingByName(const char *Name);
-const cRecording *GetRecordingByFileName(const char *FileName);
 int GetFrontendSTR(void); // Signal strength [%]
 int GetFrontendSNR(void); // Signal to Noise ratio [%]
 bool GetFrontendHasLock(void);
 bool GetFrontendHasSignal(void);
 std::string AddExtInfoToDescription(const char *Title, const char *ShortText, const char *Description, const char *Aux = NULL, bool StripAux = false);
-int GetRecordingSize(const char *FileName); // [MB]
 int GetRecordingLength(const char *FileName, double FramesPerSecond, bool IsPesRecording); // [min]
 int GetRecordingCuttedLength(const char *FileName, double FramesPerSecond, bool IsPesRecording); // [min]
 
