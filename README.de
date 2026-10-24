@@ -4,7 +4,7 @@ Geschrieben von:               Sascha Volkenandt <sascha@akv-soft.de>
 
 Gepflegt von:                  Frank Neumann <fnu@vdr-portal.de>
 
-Letzte Version verfügbar auf: https://github.com/vdr-projects/vdr-plugin-text2skin
+Letzte Version verfügbar auf: https://github.com/unf/vdr-plugin-text2skin
 
 Siehe COPYING für Linzensierungsinformationen.
 
@@ -65,7 +65,7 @@ Installieren Sie text2skin wie jedes andere Plugin. In diesem Beispiel nehme
 ich an Sie sind in den Ordner gewechselt, in dem VDR's Quelltext liegt.
 
 root@linux # cd PLUGINS/src
-root@linux # git clone https://github.com/vdr-projects/vdr-plugin-text2skin.git text2skin
+root@linux # git clone https://github.com/unf/vdr-plugin-text2skin.git text2skin
 root@linux # cd ../..
 root@linux # make plugins
 root@linux # ./vdr -P text2skin
