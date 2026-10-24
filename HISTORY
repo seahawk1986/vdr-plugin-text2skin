@@ -1,11 +1,32 @@
 VDR Plugin 'text2skin' Revision History
 ---------------------------------------
 
-20xx-xx-xx: Version x.x.x
+2026-10-24: Version 1.4.0
 
 - Drop legacy code prio VDR 2.2.0
 - Replace readdir_r as it is marked DEPRECATED from glibc 2.2.4
 - Adopt verbosity settings in Makefile form VDR 2.3.5/2.3.6
+- Require VDR 2.4.0.
+- Scale skins with screenBase "abs1280x720" or "abs1920x1080" to the real OSD
+  size, e.g. a 1920x1080 skin on a 3840x2160 OSD.
+- True colour mode for displays whose windows all have bpp="32": images with
+  full colours and alpha blending, text anti-aliased against the real
+  background. Falls back to 256 colours without a true colour OSD.
+- Only changed parts go to the OSD: the changed rectangle in true colour,
+  the drawn windows in palette mode.
+- Scale images with a Lanczos filter (true colour, or images with a colors
+  attribute), build complete frames of animations first, dither images of
+  a 16 bit GraphicsMagick down to 8 bits per channel.
+- Keep copies of channel, event and recording data instead of VDR's
+  pointers, which could already be deleted when the display was drawn.
+- Never wait for VDR's global lists in the update thread, VDR could hang
+  when a timer started while the menu was open.
+- Aspect ratio and language tokens know H.264 and HEVC video and AC-3,
+  HE-AAC and AC-4 audio.
+- {FreeDiskSpace} as time uses the free recording time from VDR.
+- Skip reruns without event or on unknown channels (crashed).
+- Free the window bitmaps of a display.
+- GraphicsMagick is the default image library.
 
 2017-05-29: Version 1.3.4
 
