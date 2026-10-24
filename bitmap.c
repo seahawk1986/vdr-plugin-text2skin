@@ -191,6 +191,13 @@ bool cText2SkinBitmap::LoadNonXpm(const char *Filename, int height, int width, i
 			return false;
 		}
 		mDelay = images[0].animationDelay() * 10;
+		if (images.size() > 1) {
+			// frames of an optimized animation hold only what changed,
+			// build complete frames before they are scaled one by one
+			std::vector<Image> frames;
+			coalesceImages(&frames, images.begin(), images.end());
+			images.swap(frames);
+		}
 		for (it = images.begin(); it != images.end(); ++it) {
 			// scale with a Lanczos filter instead of sample() (nearest neighbour,
 			// blocky when enlarged), and before quantizing, so the filter
