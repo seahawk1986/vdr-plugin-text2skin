@@ -827,16 +827,20 @@ cxType cText2SkinRender::GetToken(const txToken &Token)
 
 cxType cText2SkinRender::GetTokenData(const txToken &Token)
 {
-#define MB_PER_MINUTE 25.75 // this is just an estimate!
 	switch (Token.Type) {
 	case tFreeDiskSpace: {
 			int FreeMB;
 			cVideoDirectory::VideoDiskSpace(&FreeMB);
 			Dprintf("FreeMB: %d, attrib type is %d\n", FreeMB,Token.Attrib.Type);
-			return Token.Attrib.Type == aString && Token.Attrib.Text.length() > 0
-			       ? (cxType)DurationType(FreeMB * 60 / MB_PER_MINUTE,
-			                              Token.Attrib.Text)
-			       : (cxType)FreeMB;
+			if (Token.Attrib.Type == aString && Token.Attrib.Text.length() > 0) {
+				// free recording time from VDR, based on the data rate of the
+				// existing recordings instead of a fixed SD estimate
+				int state = -1;
+				cVideoDiskUsage::HasChanged(state);
+				return (cxType)DurationType(cVideoDiskUsage::FreeMinutes() * 60,
+				                            Token.Attrib.Text);
+			}
+			return (cxType)FreeMB;
 		}
 
 	case tUsedDiskSpace: {

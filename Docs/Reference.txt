@@ -608,9 +608,11 @@ Defines an item for the list.
 |                        |                           |  Attribute: Number to choose n-th current recording
 -----------------------------------------------------------------------------
 | FreeDiskSpace          |                           | Remaining free disk space in MB
-|                        |                           |  Attribute: return as formatted time.
+|                        |                           |  Attribute: return as formatted time
+|                        |                           |  (remaining recording time as estimated
+|                        |                           |  by VDR from the existing recordings).
 -----------------------------------------------------------------------------
-| UsedDiskSpace          |                           | Used disk space in MB
+| UsedDiskSpace         |                           | Used disk space in MB
 -----------------------------------------------------------------------------
 | TotalDiskSpace         |                           | Total disk space in MB
 -----------------------------------------------------------------------------
