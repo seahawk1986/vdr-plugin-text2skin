@@ -17,10 +17,15 @@ class cText2SkinDisplayChannel: public cSkinDisplayChannel, public cText2SkinRen
 private:
 	cSkinDisplayChannel *mFallbackDisplay;
 
-	const cChannel      *mChannel;
+	// the pointers only tell whether VDR passed something new, the update
+	// thread reads the copies
+	const cChannel      *mChannelPtr;
 	int                  mNumber;
-	const cEvent        *mPresent;
-	const cEvent        *mFollowing;
+	const cEvent        *mPresentPtr;
+	const cEvent        *mFollowingPtr;
+	tChannelData         mChannel;
+	tEventData           mPresent;
+	tEventData           mFollowing;
 	eMessageType         mType;
 	std::string          mText;
 	std::string          mButtonRed;
@@ -138,11 +143,13 @@ private:
 	eMessageType      mMessageType;
 	std::string       mMessageText;
 
-	// detailed event view
-	const cEvent     *mEvent;
+	// detailed event view (pointer for change detection only, see tEventData)
+	const cEvent     *mEventPtr;
+	tEventData        mEvent;
 	std::string       ExtPresentDescription;
 	// detailed recording
-	const cRecording *mRecording;
+	const cRecording *mRecordingPtr;
+	tRecordingData    mRecording;
 	std::string       ExtRecordingDescription;
 	// long text
 	std::string       mText;

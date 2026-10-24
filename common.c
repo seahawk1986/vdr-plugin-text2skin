@@ -5,6 +5,7 @@
 #include <sstream>
 #include <vdr/plugin.h>
 #include <vdr/device.h>
+#include <vdr/sources.h>
 #include <sys/ioctl.h>
 #include <linux/dvb/frontend.h>
 
@@ -89,6 +90,139 @@ const char *ChannelServiceReference(const cChannel *Channel, int Number)
 	else if (!Number)
 		snprintf(buffer, sizeof(buffer), "%s", trVDR("*** Invalid Channel ***"));
 	return buffer;
+}
+
+void tChannelData::Set(const cChannel *Channel, int Number)
+{
+	*this = tChannelData();
+	number = ChannelNumber(Channel, Number);
+	if (Channel == NULL)
+		return;
+	valid            = true;
+	name             = ChannelName(Channel, Number);
+	shortName        = ChannelShortName(Channel, Number);
+	serviceReference = ChannelServiceReference(Channel, Number);
+	provider         = Channel->Provider();
+	portal           = Channel->PortalName();
+	if (const cSource *s = Sources.Get(Channel->Source()))
+		source = s->Description();
+	channelID        = *Channel->GetChannelID().ToString();
+	hasTeletext      = Channel->Tpid() != 0;
+	hasMultilang     = Channel->Apid(1) != 0;
+	hasDolby         = Channel->Dpid(0) != 0;
+	isEncrypted      = Channel->Ca() != 0;
+	isRadio          = ISRADIO(Channel);
+}
+
+static void CopyComponents(tComponents &Dest, const cComponents *Components)
+{
+	Dest.clear();
+	if (Components == NULL)
+		return;
+	for (int i = 0; i < Components->NumComponents(); i++) {
+		const tComponent *c = Components->Component(i);
+		tComponentData d;
+		d.stream      = c->stream;
+		d.type        = c->type;
+		d.language    = c->language;
+		d.description = c->description ? c->description : "";
+		Dest.push_back(d);
+	}
+}
+
+void tEventData::Set(const cEvent *Event)
+{
+	*this = tEventData();
+	if (Event == NULL)
+		return;
+	valid       = true;
+	title       = Event->Title() ? Event->Title() : "";
+	shortText   = Event->ShortText() ? Event->ShortText() : "";
+	description = Event->Description() ? Event->Description() : "";
+	startTime   = Event->StartTime();
+	endTime     = Event->EndTime();
+	vps         = Event->Vps();
+	duration    = Event->Duration();
+	hasTimer    = Event->HasTimer();
+	isRunning   = Event->IsRunning();
+	eventID     = Event->EventID();
+	channelID   = Event->ChannelID();
+	CopyComponents(components, Event->Components());
+}
+
+void tRecordingData::Set(const cRecording *Recording)
+{
+	*this = tRecordingData();
+	if (Recording == NULL)
+		return;
+	const cRecordingInfo *info = Recording->Info();
+	valid           = true;
+	name            = Recording->Name() ? Recording->Name() : "";
+	fileName        = Recording->FileName() ? Recording->FileName() : "";
+	priority        = Recording->Priority();
+	lifetime        = Recording->Lifetime();
+	start           = Recording->Start();
+	framesPerSecond = Recording->FramesPerSecond();
+	isPesRecording  = Recording->IsPesRecording();
+	if (info) {
+		title       = info->Title() ? info->Title() : "";
+		shortText   = info->ShortText() ? info->ShortText() : "";
+		description = info->Description() ? info->Description() : "";
+		aux         = info->Aux() ? info->Aux() : "";
+		channelID   = info->ChannelID();
+		CopyComponents(components, info->Components());
+	}
+}
+
+// Number counts audio components only: every other component before the
+// wanted one moves the index on (the way text2skin always counted).
+static const tComponentData *AudioComponent(const tComponents &Components, int Number)
+{
+	int index = Number;
+	for (int i = 0; i < (int)Components.size(); i++) {
+		if (Components[i].stream != 2) // only audio-streams
+			index++;
+		if (i == index)
+			return &Components[i];
+	}
+	return NULL;
+}
+
+cxType ComponentLanguageCode(const tComponents &Components, int Number)
+{
+	const tComponentData *c = AudioComponent(Components, Number);
+	if (c == NULL)
+		return false;
+	std::string buffer(c->language);
+	if (c->type == 1)
+		buffer.append("MONO");
+	if ((c->type == 2) || (c->type == 4))
+		buffer.append("DUAL");
+	if (c->type == 5)
+		buffer.append("DD");
+	return buffer;
+}
+
+cxType ComponentLanguageDescription(const tComponents &Components, int Number)
+{
+	const tComponentData *c = AudioComponent(Components, Number);
+	return c != NULL ? (cxType)c->description : (cxType)false;
+}
+
+cxType ComponentVideoAR(const tComponents &Components)
+{
+	for (int i = 0; i < (int)Components.size(); i++) {
+		const tComponentData &c = Components[i];
+		if (c.stream == 1) {
+			switch (c.type) {
+			case 1:
+				return "4:3";
+			case 3:
+				return "16:9";
+			}
+		}
+	}
+	return false;
 }
 
 const char *EventType(uint Number)

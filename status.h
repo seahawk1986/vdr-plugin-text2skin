@@ -63,7 +63,7 @@ private:
 	bool              mReplayIsLoop;
 	bool              mReplayIsShuffle;
 	tRecordings       mRecordings;
-	const cRecording *mReplay;
+	tRecordingData    mReplay; // copy, the update thread reads it later
 	cList<tEvent>     mEvents;
 	cMutex            mRecordingsLock;
 	uint              mCurrentRecording;

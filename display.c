@@ -15,10 +15,10 @@
 cText2SkinDisplayChannel::cText2SkinDisplayChannel(cText2SkinLoader *Loader, bool WithInfo):
 		cText2SkinRender(Loader, WithInfo ? cxDisplay::channelInfo : cxDisplay::channelSmall),
 		mFallbackDisplay(NULL),
-		mChannel(NULL),
+		mChannelPtr(NULL),
 		mNumber(0),
-		mPresent(NULL),
-		mFollowing(NULL),
+		mPresentPtr(NULL),
+		mFollowingPtr(NULL),
 		mType(mtStatus),
 		mText("") ,
 		mButtonRed(""),
@@ -45,12 +45,16 @@ void cText2SkinDisplayChannel::SetChannel(const cChannel *Channel, int Number)
 		return;
 	}
 
+	tChannelData channel;
+	channel.Set(Channel, Number);
+
 	UpdateLock();
-	if (mChannel != Channel || mNumber != Number) {
-		mChannel = Channel;
+	if (mChannelPtr != Channel || mNumber != Number) {
+		mChannelPtr = Channel;
 		mNumber = Number;
 		SetDirty(cxRefresh::update);
 	}
+	mChannel = channel;
 	UpdateUnlock();
 }
 
@@ -61,10 +65,18 @@ void cText2SkinDisplayChannel::SetEvents(const cEvent *Present, const cEvent *Fo
 		return;
 	}
 
+	// VDR calls this again after EPG updates, a changed text is shown as well
+	tEventData present, following;
+	present.Set(Present);
+	following.Set(Following);
+
 	UpdateLock();
-	if (mPresent != Present || mFollowing != Following) {
-		mPresent = Present;
-		mFollowing = Following;
+	if (mPresentPtr != Present || mFollowingPtr != Following
+	    || mPresent != present || mFollowing != following) {
+		mPresentPtr = Present;
+		mFollowingPtr = Following;
+		mPresent = present;
+		mFollowing = following;
 		SetDirty(cxRefresh::update);
 	}
 	UpdateUnlock();
@@ -115,124 +127,124 @@ cxType cText2SkinDisplayChannel::GetTokenData(const txToken &Token)
 {
 	switch (Token.Type) {
 	case tChannelNumber:
-		return ChannelNumber(mChannel, mNumber);
+		return mChannel.number;
 
 	case tChannelName:
-		return mChannel != NULL
-		       ? (cxType)ChannelName(mChannel, mNumber)
+		return mChannel.valid
+		       ? (cxType)mChannel.name
 		       : (cxType)false;
 
 	case tChannelShortName:
-		return mChannel != NULL
-		       ? (cxType)ChannelShortName(mChannel, mNumber)
+		return mChannel.valid
+		       ? (cxType)mChannel.shortName
 		       : (cxType)false;
 
 	case tChannelServiceReference:
-		return mChannel != NULL
-		       ? (cxType)ChannelServiceReference(mChannel, mNumber)
+		return mChannel.valid
+		       ? (cxType)mChannel.serviceReference
 		       : (cxType)false;
 
 	case tChannelBouquet:
-		return mChannel != NULL
-		       ? (cxType)mChannel->Provider()
+		return mChannel.valid
+		       ? (cxType)mChannel.provider
 		       : (cxType)false;
 
 	case tChannelPortal:
-		return mChannel != NULL
-		       ? (cxType)mChannel->PortalName()
+		return mChannel.valid
+		       ? (cxType)mChannel.portal
 		       : (cxType)false;
 
 	case tChannelSource:
-		return mChannel != NULL && Sources.Get(mChannel->Source()) != NULL
-		       ? (cxType)Sources.Get(mChannel->Source())->Description()
+		return mChannel.valid && !mChannel.source.empty()
+		       ? (cxType)mChannel.source
 		       : (cxType)false;
 
 	case tTChannelID:
-		return mChannel != NULL
-		       ? (cxType)(const char*)mChannel->GetChannelID().ToString()
+		return mChannel.valid
+		       ? (cxType)mChannel.channelID
 		       : (cxType)false;
 
 	case tPresentStartDateTime:
-		return mPresent != NULL
-		       ? (cxType)TimeType(mPresent->StartTime(), Token.Attrib.Text)
+		return mPresent.valid
+		       ? (cxType)TimeType(mPresent.startTime, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tPresentVPSDateTime:
-		return mPresent != NULL
-		       ? (cxType)TimeType(mPresent->Vps(), Token.Attrib.Text)
+		return mPresent.valid
+		       ? (cxType)TimeType(mPresent.vps, Token.Attrib.Text)
 		       : (cxType)false;
 
-	case tPresentEndDateTime: return mPresent != NULL
-		       ? (cxType)TimeType(mPresent->EndTime(), Token.Attrib.Text)
+	case tPresentEndDateTime: return mPresent.valid
+		       ? (cxType)TimeType(mPresent.endTime, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tPresentProgress:
-		return mPresent != NULL
-		       ? (cxType)DurationType(time(NULL) - mPresent->StartTime(),
+		return mPresent.valid
+		       ? (cxType)DurationType(time(NULL) - mPresent.startTime,
 		                              Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tPresentDuration:
-		return mPresent != NULL
-		       ? (cxType)DurationType(mPresent->Duration(), Token.Attrib.Text)
+		return mPresent.valid
+		       ? (cxType)DurationType(mPresent.duration, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tPresentRemaining:
-		if (mPresent != NULL && time(NULL) - mPresent->StartTime()
-		                        <= mPresent->Duration()) {
-			return (cxType)DurationType(mPresent->Duration() - (time(NULL) - mPresent->StartTime()),
+		if (mPresent.valid && time(NULL) - mPresent.startTime
+		                      <= mPresent.duration) {
+			return (cxType)DurationType(mPresent.duration - (time(NULL) - mPresent.startTime),
 		                                    Token.Attrib.Text);
 		}
 		return false;
 
 	case tPresentTitle:
-		return mPresent != NULL
-		       ? (cxType)mPresent->Title()
+		return mPresent.valid
+		       ? (cxType)mPresent.title
 		       : (cxType)false;
 
 	case tPresentShortText:
-		return mPresent != NULL
-		       ? (cxType)mPresent->ShortText()
+		return mPresent.valid
+		       ? (cxType)mPresent.shortText
 		       : (cxType)false;
 
 	case tPresentDescription:
-		return mPresent != NULL
-		       ? (cxType)mPresent->Description()
+		return mPresent.valid
+		       ? (cxType)mPresent.description
 		       : (cxType)false;
 
 	case tFollowingStartDateTime:
-		return mFollowing != NULL
-		       ? (cxType)TimeType(mFollowing->StartTime(), Token.Attrib.Text)
+		return mFollowing.valid
+		       ? (cxType)TimeType(mFollowing.startTime, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tFollowingVPSDateTime:
-		return mFollowing != NULL
-		       ? (cxType)TimeType(mFollowing->Vps(), Token.Attrib.Text)
+		return mFollowing.valid
+		       ? (cxType)TimeType(mFollowing.vps, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tFollowingEndDateTime:
-		return mFollowing != NULL
-		       ? (cxType)TimeType(mFollowing->EndTime(), Token.Attrib.Text)
+		return mFollowing.valid
+		       ? (cxType)TimeType(mFollowing.endTime, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tFollowingDuration:
-		return mFollowing != NULL
-		       ? (cxType)DurationType(mFollowing->Duration(), Token.Attrib.Text)
+		return mFollowing.valid
+		       ? (cxType)DurationType(mFollowing.duration, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tFollowingTitle:
-		return mFollowing != NULL
-		       ? (cxType)mFollowing->Title()
+		return mFollowing.valid
+		       ? (cxType)mFollowing.title
 		       : (cxType)false;
 
 	case tFollowingShortText:
-		return mFollowing != NULL
-		       ? (cxType)mFollowing->ShortText()
+		return mFollowing.valid
+		       ? (cxType)mFollowing.shortText
 		       : (cxType)false;
 
 	case tFollowingDescription:
-		return mFollowing != NULL
-		       ? (cxType)mFollowing->Description()
+		return mFollowing.valid
+		       ? (cxType)mFollowing.description
 		       : (cxType)false;
 
 	case tLanguage: {
@@ -267,48 +279,48 @@ cxType cText2SkinDisplayChannel::GetTokenData(const txToken &Token)
 
 	case tHasTeletext:
 	case tChannelHasTeletext:
-		return mChannel != NULL && mChannel->Tpid() != 0;
+		return mChannel.valid && mChannel.hasTeletext;
 
 	case tHasMultilang:
 	case tChannelHasMultilang:
-		return mChannel != NULL && mChannel->Apid(1) != 0;
+		return mChannel.valid && mChannel.hasMultilang;
 
 	case tHasDolby:
 	case tChannelHasDolby:
-		return mChannel != NULL && mChannel->Dpid(0) != 0;
+		return mChannel.valid && mChannel.hasDolby;
 
 	case tIsEncrypted:
 	case tChannelIsEncrypted:
-		return mChannel != NULL && mChannel->Ca() != 0;
+		return mChannel.valid && mChannel.isEncrypted;
 
 	case tIsRadio:
 	case tChannelIsRadio:
-		return mChannel != NULL && ISRADIO(mChannel);
+		return mChannel.valid && mChannel.isRadio;
 
 	case tHasVPS:
 	case tChannelHasVPS:
-		return mPresent != NULL && mPresent->Vps() != 0;
+		return mPresent.valid && mPresent.vps != 0;
 
 	case tPresentHasVPS:
-		return mPresent != NULL && mPresent->Vps() != 0 && mPresent->Vps() != mPresent->StartTime();
+		return mPresent.valid && mPresent.vps != 0 && mPresent.vps != mPresent.startTime;
 
 	case tHasTimer:
 	case tPresentHasTimer:
-		return mPresent != NULL && mPresent->HasTimer();
+		return mPresent.valid && mPresent.hasTimer;
 
 	case tIsRunning:
 	case tPresentIsRunning:
-		return mPresent != NULL && mPresent->IsRunning();
+		return mPresent.valid && mPresent.isRunning;
 
 	case tFollowingHasTimer:
-		return mFollowing != NULL && mFollowing->HasTimer();
+		return mFollowing.valid && mFollowing.hasTimer;
 
 	case tFollowingIsRunning:
-		return mFollowing != NULL && mFollowing->IsRunning();
+		return mFollowing.valid && mFollowing.isRunning;
 
 	case tFollowingHasVPS:
-		return mFollowing != NULL && mFollowing->Vps() != 0
-		    && mFollowing->Vps() != mFollowing->StartTime();
+		return mFollowing.valid && mFollowing.vps != 0
+		    && mFollowing.vps != mFollowing.startTime;
 
 	case tMessage:
 		return mText;
@@ -719,8 +731,8 @@ cText2SkinDisplayMenu::cText2SkinDisplayMenu(cText2SkinLoader *Loader):
 		mButtonBlue(""),
 		mMessageType(mtStatus),
 		mMessageText(""),
-		mEvent(NULL),
-		mRecording(NULL),
+		mEventPtr(NULL),
+		mRecordingPtr(NULL),
 		mItems(),
 		mCurrentItem((uint)-1)
 {
@@ -765,9 +777,11 @@ void cText2SkinDisplayMenu::Clear(void)
 	UpdateLock();
 	mItems.clear();
 	mCurrentItem = (uint)-1;
-	mEvent = NULL;
+	mEventPtr = NULL;
+	mEvent = tEventData();
 	ExtPresentDescription = "";
-	mRecording = NULL;
+	mRecordingPtr = NULL;
+	mRecording = tRecordingData();
 	ExtRecordingDescription = "";
 	mText = "";
 	cText2SkinRender::Clear();
@@ -888,11 +902,15 @@ void cText2SkinDisplayMenu::SetEvent(const cEvent *Event)
 		return;
 	}
 
+	tEventData event;
+	event.Set(Event);
+
 	UpdateLock();
-	if (mEvent != Event) {
-		mEvent = Event;
+	if (mEventPtr != Event || mEvent != event) {
+		mEventPtr = Event;
+		mEvent = event;
 		ExtPresentDescription = "";
-		if (mEvent != NULL)
+		if (Event != NULL)
 			SetDirty(cxRefresh::update);
 	}
 	UpdateUnlock();
@@ -905,12 +923,15 @@ void cText2SkinDisplayMenu::SetRecording(const cRecording *Recording)
 		return;
 	}
 
+	tRecordingData recording;
+	recording.Set(Recording);
+
 	UpdateLock();
-	// yet unused
-	if (mRecording != Recording) {
-		mRecording = Recording;
+	if (mRecordingPtr != Recording) {
+		mRecordingPtr = Recording;
+		mRecording = recording;
 		ExtRecordingDescription = "";
-		if (mRecording != NULL)
+		if (Recording != NULL)
 			SetDirty(cxRefresh::update);
 	}
 	UpdateUnlock();
@@ -1069,349 +1090,193 @@ cxType cText2SkinDisplayMenu::GetTokenData(const txToken &Token)
 		       : (cxType)false;
 
 	case tPresentStartDateTime:
-		return mEvent != NULL
-		       ? (cxType)TimeType(mEvent->StartTime(), Token.Attrib.Text)
+		return mEvent.valid
+		       ? (cxType)TimeType(mEvent.startTime, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tPresentVPSDateTime:
-		return mEvent != NULL
-		       ? (cxType)TimeType(mEvent->Vps(), Token.Attrib.Text)
+		return mEvent.valid
+		       ? (cxType)TimeType(mEvent.vps, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tPresentEndDateTime:
-		return mEvent != NULL
-		       ? (cxType)TimeType(mEvent->EndTime(), Token.Attrib.Text)
+		return mEvent.valid
+		       ? (cxType)TimeType(mEvent.endTime, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tPresentProgress:
-		return mEvent != NULL
-		       ? (cxType)DurationType(time(NULL) - mEvent->StartTime(),
+		return mEvent.valid
+		       ? (cxType)DurationType(time(NULL) - mEvent.startTime,
 		                              Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tPresentDuration:
-		return mEvent != NULL
-		       ? (cxType)DurationType(mEvent->Duration(), Token.Attrib.Text)
+		return mEvent.valid
+		       ? (cxType)DurationType(mEvent.duration, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tPresentRemaining:
-		return mEvent != NULL
-		       ? (cxType)DurationType(mEvent->Duration() - (time(NULL) - mEvent->StartTime()),
+		return mEvent.valid
+		       ? (cxType)DurationType(mEvent.duration - (time(NULL) - mEvent.startTime),
 		                              Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tPresentTitle:
-		return mEvent != NULL
-		       ? (cxType)mEvent->Title()
+		return mEvent.valid
+		       ? (cxType)mEvent.title
 		       : (cxType)false;
 
 	case tPresentShortText:
-		return mEvent != NULL
-		       ? (cxType)mEvent->ShortText()
+		return mEvent.valid
+		       ? (cxType)mEvent.shortText
 		       : (cxType)false;
 
 	case tPresentDescription:
-		if (mEvent) {
+		if (mEvent.valid) {
 			if (ExtPresentDescription == "") {
 				// find corresponding timer
-				const char *aux = NULL;
-#if APIVERSNUM < 20301
-				for (cTimer *tim = Timers.First(); tim; tim = Timers.Next(tim))
-#else
+				std::string aux;
+				bool auxFound = false;
 				LOCK_TIMERS_READ;
-				for (const cTimer *tim = Timers->First(); tim; tim = Timers->Next(tim))
-#endif
-					if (tim->Event() == mEvent)
-						aux = tim->Aux();
-				ExtPresentDescription = AddExtInfoToDescription(mEvent->Title(), mEvent->ShortText(), mEvent->Description(), aux, Text2SkinSetup.StripAux);
+				for (const cTimer *tim = Timers->First(); tim; tim = Timers->Next(tim)) {
+					// compares pointers only, the timer's event is not read
+					if (tim->Event() == mEventPtr) {
+						aux = tim->Aux() ? tim->Aux() : "";
+						auxFound = tim->Aux() != NULL;
+					}
+				}
+				ExtPresentDescription = AddExtInfoToDescription(mEvent.title.c_str(), mEvent.shortText.c_str(), mEvent.description.c_str(), auxFound ? aux.c_str() : NULL, Text2SkinSetup.StripAux);
 			}
 			return (cxType)ExtPresentDescription;
 		} else
 			return (cxType)false;
 
 	case tPresentLanguageCode:
-		if (mEvent) {
-			const cComponents *components = mEvent->Components();
-			if (components) {
-				int index = Token.Attrib.Number;
-
-				// don't return language-code for the video-stream
-				for (int i = 0; i < components->NumComponents(); i++) {
-					const tComponent *c = components->Component(i);
-					if (c->stream != 2) // only audio-streams
-						index++;
-					if (i == index) {
-						std::string buffer(c->language);
-						if (c->type == 1)
-							buffer.append("MONO");
-						if ((c->type == 2) || (c->type == 4))
-							buffer.append("DUAL");
-						if (c->type == 5)
-							buffer.append("DD");
-						return (cxType)buffer.c_str();
-					}
-				}
-			}
-		}
-		return false;
+		return mEvent.valid
+		       ? ComponentLanguageCode(mEvent.components, Token.Attrib.Number)
+		       : (cxType)false;
 
 	case tPresentLanguageDescription:
-		if (mEvent) {
-			const cComponents *components = mEvent->Components();
-			if (components) {
-				int index = Token.Attrib.Number;
-
-				// don't return language-code for the video-stream
-				for (int i = 0; i < components->NumComponents(); i++) {
-					const tComponent *c = components->Component(i);
-					if (c->stream != 2) // only audio-streams
-						index++;
-					if (i == index)
-						return (cxType)c->description;
-				}
-			}
-		}
-		return false;
+		return mEvent.valid
+		       ? ComponentLanguageDescription(mEvent.components, Token.Attrib.Number)
+		       : (cxType)false;
 
 	case tPresentVideoAR:
-		if (mEvent) {
-			const cComponents *components = mEvent->Components();
-			if (components) {
-				for (int i = 0; i < components->NumComponents(); i++) {
-					const tComponent *c = components->Component(i);
-					if (c->stream == 1) {
-						switch (c->type) {
-						case 1:
-							return "4:3";
-						case 3:
-							return "16:9";
-						}
-					}
-				}
-			}
-		}
-		return false;
+		return mEvent.valid
+		       ? ComponentVideoAR(mEvent.components)
+		       : (cxType)false;
 
 	case tPresentEventID:
-		return mEvent != NULL
-		       ? (cxType)EventType(mEvent->EventID())
+		return mEvent.valid
+		       ? (cxType)EventType(mEvent.eventID)
 		       : (cxType)false;
 
 	case tHasVPS:
 	case tChannelHasVPS:
-		return mEvent != NULL && mEvent->Vps() != 0;
+		return mEvent.valid && mEvent.vps != 0;
 
 	case tChannelName:
-		if (mEvent) { // extended EPG
-#if APIVERSNUM < 20301
-			cChannel *channel = Channels.GetByChannelID(mEvent->ChannelID(), true);
-#else
-			LOCK_CHANNELS_READ;
-			const cChannel *channel = Channels->GetByChannelID(mEvent->ChannelID(), true);
-#endif
-			return channel != NULL
-			       ? (cxType)ChannelName(channel, 0)
-			       : (cxType)false;
-		}
-		else if (mRecording) { // recording Info
-			cRecordingInfo *recInfo = const_cast<cRecordingInfo*>(mRecording->Info());
-#if APIVERSNUM < 20301
-			cChannel *channel = Channels.GetByChannelID(recInfo->ChannelID(), true);
-#else
-			LOCK_CHANNELS_READ;
-			const cChannel *channel = Channels->GetByChannelID(recInfo->ChannelID(), true);
-#endif
-			return channel != NULL
-			       ? (cxType)ChannelName(channel, 0)
-			       : (cxType)false;
-		} else
-			return (cxType)false;
-
 	case tChannelShortName:
-		if (mEvent) { // extended EPG
-#if APIVERSNUM < 20301
-			cChannel *channel = Channels.GetByChannelID(mEvent->ChannelID(), true);
-#else
-			LOCK_CHANNELS_READ;
-			const cChannel *channel = Channels->GetByChannelID(mEvent->ChannelID(), true);
-#endif
-			return channel != NULL
-			       ? (cxType)ChannelShortName(channel, 0)
-			       : (cxType)false;
-		}
-		else if (mRecording) { // recording Info
-			cRecordingInfo *recInfo = const_cast<cRecordingInfo*>(mRecording->Info());
-#if APIVERSNUM < 20301
-			cChannel *channel = Channels.GetByChannelID(recInfo->ChannelID(), true);
-#else
-			LOCK_CHANNELS_READ;
-			const cChannel *channel = Channels->GetByChannelID(recInfo->ChannelID(), true);
-#endif
-			return channel != NULL
-			       ? (cxType)ChannelShortName(channel, 0)
-			       : (cxType)false;
-		} else
-			return (cxType)false;
-
 	case tChannelServiceReference:
-		if (mEvent) { // extended EPG
-#if APIVERSNUM < 20301
-			cChannel *channel = Channels.GetByChannelID(mEvent->ChannelID(), true);
-#else
+		// extended EPG or recording info
+		if (mEvent.valid || mRecording.valid) {
 			LOCK_CHANNELS_READ;
-			const cChannel *channel = Channels->GetByChannelID(mEvent->ChannelID(), true);
-#endif
-			return channel != NULL
-			       ? (cxType)ChannelServiceReference(channel, 0)
-			       : (cxType)false;
+			const cChannel *channel = Channels->GetByChannelID(mEvent.valid ? mEvent.channelID : mRecording.channelID, true);
+			if (channel == NULL)
+				return false;
+			switch (Token.Type) {
+			case tChannelName:      return ChannelName(channel, 0);
+			case tChannelShortName: return ChannelShortName(channel, 0);
+			default:                return ChannelServiceReference(channel, 0);
+			}
 		}
-		else if (mRecording) { // recording Info
-			cRecordingInfo *recInfo = const_cast<cRecordingInfo*>(mRecording->Info());
-#if APIVERSNUM < 20301
-			cChannel *channel = Channels.GetByChannelID(recInfo->ChannelID(), true);
-#else
-			LOCK_CHANNELS_READ;
-			const cChannel *channel = Channels->GetByChannelID(recInfo->ChannelID(), true);
-#endif
-			return channel != NULL
-			       ? (cxType)ChannelServiceReference(channel, 0)
-			       : (cxType)false;
-		} else
-			return (cxType)false;
+		return false;
 
 	case tPresentHasVPS:
-		return mEvent != NULL && mEvent->Vps() != 0 && mEvent->Vps() != mEvent->StartTime();
+		return mEvent.valid && mEvent.vps != 0 && mEvent.vps != mEvent.startTime;
 
 	case tHasTimer:
 	case tPresentHasTimer:
-		return mEvent != NULL && mEvent->HasTimer();
+		return mEvent.valid && mEvent.hasTimer;
 
 	case tIsRunning:
 	case tPresentIsRunning:
-		return mEvent != NULL && mEvent->IsRunning();
+		return mEvent.valid && mEvent.isRunning;
 
 	case tMenuText:
 		return mText;
 
 	case tRecordingName:
-		return mRecording != NULL
-		       ? (cxType)mRecording->Name()
+		return mRecording.valid
+		       ? (cxType)mRecording.name
 		       : (cxType)false;
 
 	case tRecordingFilename:
-		return mRecording != NULL
-		       ? (cxType)mRecording->FileName()
+		return mRecording.valid
+		       ? (cxType)mRecording.fileName
 		       : (cxType)false;
 
 	case tRecordingPriority:
-		return mRecording != NULL
-		       ? (cxType)mRecording->Priority()
+		return mRecording.valid
+		       ? (cxType)mRecording.priority
 		       : (cxType)false;
 
 	case tRecordingLifetime:
-		return mRecording != NULL
-		       ? (cxType)mRecording->Lifetime()
+		return mRecording.valid
+		       ? (cxType)mRecording.lifetime
 		       : (cxType)false;
 
 	case tRecordingDateTime:
-		return mRecording != NULL
-		       ? (cxType)TimeType(mRecording->Start(), Token.Attrib.Text)
+		return mRecording.valid
+		       ? (cxType)TimeType(mRecording.start, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tRecordingTitle:
-		return mRecording != NULL
-		       ? (cxType)mRecording->Info()->Title()
+		return mRecording.valid
+		       ? (cxType)mRecording.title
 		       : (cxType)false;
 
 	case tRecordingShortText:
-		return mRecording != NULL
-		       ? (cxType)mRecording->Info()->ShortText()
+		return mRecording.valid
+		       ? (cxType)mRecording.shortText
 		       : (cxType)false;
 
 	case tRecordingDescription:
-		if (mRecording) {
+		if (mRecording.valid) {
 			if (ExtRecordingDescription == "")
-				ExtRecordingDescription = AddExtInfoToDescription(mRecording->Info()->Title(), mRecording->Info()->ShortText(), mRecording->Info()->Description(), Text2SkinSetup.ShowAux ? mRecording->Info()->Aux() : NULL, Text2SkinSetup.StripAux);
+				ExtRecordingDescription = AddExtInfoToDescription(mRecording.title.c_str(), mRecording.shortText.c_str(), mRecording.description.c_str(), Text2SkinSetup.ShowAux && !mRecording.aux.empty() ? mRecording.aux.c_str() : NULL, Text2SkinSetup.StripAux);
 			return (cxType)ExtRecordingDescription;
 		} else
 			return (cxType)false;
 
 	case tRecordingLanguageCode:
-		if (mRecording) {
-			const cComponents *components = mRecording->Info()->Components();
-			if (components) {
-				int index = Token.Attrib.Number;
-
-				// don't return language-code for the video-stream
-				for (int i = 0; i < components->NumComponents(); i++) {
-					const tComponent *c = components->Component(i);
-					if (c->stream != 2) // only audio-streams
-						index++;
-					if (i == index) {
-						std::string buffer(c->language);
-						if (c->type == 1)
-							buffer.append("MONO");
-						if ((c->type == 2) || (c->type == 4))
-							buffer.append("DUAL");
-						if (c->type == 5)
-							buffer.append("DD");
-						return (cxType)buffer.c_str();
-					}
-				}
-			}
-		}
-		return false;
+		return mRecording.valid
+		       ? ComponentLanguageCode(mRecording.components, Token.Attrib.Number)
+		       : (cxType)false;
 
 	case tRecordingLanguageDescription:
-		if (mRecording) {
-			const cComponents *components = mRecording->Info()->Components();
-			if (components) {
-				int index = Token.Attrib.Number;
-
-				// don't return language-code for the video-stream
-				for (int i = 0; i < components->NumComponents(); i++) {
-					const tComponent *c = components->Component(i);
-					if (c->stream != 2) // only audio-streams
-						index++;
-					if (i == index)
-						return (cxType)c->description;
-				}
-			}
-		}
-		return false;
+		return mRecording.valid
+		       ? ComponentLanguageDescription(mRecording.components, Token.Attrib.Number)
+		       : (cxType)false;
 
 	case tRecordingVideoAR:
-		if (mRecording) {
-			const cComponents *components = mRecording->Info()->Components();
-			if (components) {
-				for (int i = 0; i < components->NumComponents(); i++) {
-					const tComponent *c = components->Component(i);
-					if (c->stream == 1) {
-						switch (c->type) {
-						case 1:
-							return "4:3";
-						case 3:
-							return "16:9";
-						}
-					}
-				}
-			}
-		}
-		return false;
+		return mRecording.valid
+		       ? ComponentVideoAR(mRecording.components)
+		       : (cxType)false;
 
 	case tRecordingSize:
-		return mRecording != NULL
-		       ? (cxType)GetRecordingSize(mRecording->FileName())
+		return mRecording.valid
+		       ? (cxType)DirSizeMB(mRecording.fileName.c_str())
 		       : (cxType)false;
 
 	case tRecordingLength:
-		return mRecording != NULL
-		       ? (cxType)GetRecordingLength(mRecording->FileName(), mRecording->FramesPerSecond(), mRecording->IsPesRecording())
+		return mRecording.valid
+		       ? (cxType)GetRecordingLength(mRecording.fileName.c_str(), mRecording.framesPerSecond, mRecording.isPesRecording)
 		       : (cxType)false;
 
 	case tRecordingCuttedLength:
-		return mRecording != NULL
-		       ? (cxType)GetRecordingCuttedLength(mRecording->FileName(), mRecording->FramesPerSecond(), mRecording->IsPesRecording())
+		return mRecording.valid
+		       ? (cxType)GetRecordingCuttedLength(mRecording.fileName.c_str(), mRecording.framesPerSecond, mRecording.isPesRecording)
 		       : (cxType)false;
 
 	default:

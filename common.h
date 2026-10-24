@@ -5,9 +5,11 @@
 
 #include "xml/string.h"
 #include <string>
+#include <vector>
 #include <vdr/osd.h>
 #include <vdr/config.h>
 #include <vdr/epg.h>
+#include <vdr/recording.h>
 
 #if defined(DEBUG) || defined(BENCH)
 #	ifdef DEBUG
@@ -32,6 +34,93 @@
 class cMarks;
 class cChannel;
 class cRecording;
+
+// Copies of VDR's channel, event and recording data. The update thread draws
+// after VDR has called the display, when VDR's objects may already be changed
+// or deleted (EPG updates replace texts, events and recordings get removed).
+// So the displays copy what they show while VDR calls them.
+
+struct tComponentData {
+	uchar       stream;
+	uchar       type;
+	std::string language;
+	std::string description;
+};
+typedef std::vector<tComponentData> tComponents;
+
+struct tChannelData {
+	bool        valid; // false: no channel, maybe a number being entered
+	std::string number;
+	std::string name;
+	std::string shortName;
+	std::string serviceReference;
+	std::string provider;
+	std::string portal;
+	std::string source;
+	std::string channelID;
+	bool        hasTeletext;
+	bool        hasMultilang;
+	bool        hasDolby;
+	bool        isEncrypted;
+	bool        isRadio;
+
+	tChannelData(void): valid(false), hasTeletext(false), hasMultilang(false), hasDolby(false),
+	                    isEncrypted(false), isRadio(false) {}
+	void Set(const cChannel *Channel, int Number);
+};
+
+struct tEventData {
+	bool        valid;
+	std::string title;
+	std::string shortText;
+	std::string description;
+	time_t      startTime;
+	time_t      endTime;
+	time_t      vps;
+	int         duration;
+	bool        hasTimer;
+	bool        isRunning;
+	tEventID    eventID;
+	tChannelID  channelID;
+	tComponents components;
+
+	tEventData(void): valid(false), startTime(0), endTime(0), vps(0), duration(0),
+	                  hasTimer(false), isRunning(false), eventID(0) {}
+	void Set(const cEvent *Event);
+	// what a display shows of an event
+	bool operator!=(const tEventData &b) const {
+		return valid != b.valid || title != b.title || shortText != b.shortText
+		    || description != b.description || startTime != b.startTime
+		    || duration != b.duration || vps != b.vps || hasTimer != b.hasTimer
+		    || isRunning != b.isRunning;
+	}
+};
+
+struct tRecordingData {
+	bool        valid;
+	std::string name;
+	std::string fileName;
+	std::string title;
+	std::string shortText;
+	std::string description;
+	std::string aux;
+	int         priority;
+	int         lifetime;
+	time_t      start;
+	double      framesPerSecond;
+	bool        isPesRecording;
+	tChannelID  channelID;
+	tComponents components;
+
+	tRecordingData(void): valid(false), priority(0), lifetime(0), start(0),
+	                      framesPerSecond(DEFAULTFRAMESPERSECOND), isPesRecording(false) {}
+	void Set(const cRecording *Recording);
+};
+
+// tokens from the components of an event or a recording
+cxType ComponentLanguageCode(const tComponents &Components, int Number);
+cxType ComponentLanguageDescription(const tComponents &Components, int Number);
+cxType ComponentVideoAR(const tComponents &Components);
 
 // helper functions
 

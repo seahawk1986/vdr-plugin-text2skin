@@ -36,11 +36,19 @@ void cText2SkinStatus::Replaying(const cControl* /*Control*/, const char *Name,
 								 const char *FileName, bool On)
 {
 	Dprintf("cText2SkinStatus::Replaying(%s)\n", Name);
+	// copy the recording while VDR's list is locked, before the display lock
+	tRecordingData rec;
+	if (On && FileName != NULL) {
+		LOCK_RECORDINGS_READ;
+		rec.Set(Recordings->GetByName(FileName));
+	}
+
 	eReplayMode oldMode = mReplayMode;
-	mReplay = NULL;
 
 	if (mRender != NULL)
 		mRender->UpdateLock();
+
+	mReplay = tRecordingData();
 
 	if (On) {
 		mReplayMode = replayMPlayer;
@@ -56,7 +64,7 @@ void cText2SkinStatus::Replaying(const cControl* /*Control*/, const char *Name,
 				mReplayIsShuffle = Name[2] == 'S';
 			}
 		}
-		else if (const cRecording *rec = GetRecordingByFileName(FileName)) {
+		else if (rec.valid) {
 			mReplay = rec;
 			mReplayMode = replayNormal;
 		}
@@ -89,7 +97,7 @@ void cText2SkinStatus::Replaying(const cControl* /*Control*/, const char *Name,
 	}
 
 	// Workaround: Control->FramesPerSecond() not possible because its not const
-	mReplayFramesPerSecond = mReplay != NULL ? mReplay->FramesPerSecond() : DEFAULTFRAMESPERSECOND;
+	mReplayFramesPerSecond = mReplay.valid ? mReplay.framesPerSecond : DEFAULTFRAMESPERSECOND;
 
 	if (mRender != NULL) {
 		if (mReplayMode != oldMode)
@@ -322,87 +330,39 @@ cxType cText2SkinStatus::GetTokenData(const txToken &Token)
 			return 0;
 
 	case tReplayName:
-		return mReplay != NULL
-		       ? (cxType)mReplay->Name()
+		return mReplay.valid
+		       ? (cxType)mReplay.name
 		       : (cxType)false;
 
 	case tReplayDateTime:
-		return mReplay != NULL
-		       ? (cxType)TimeType(mReplay->Start(), Token.Attrib.Text)
+		return mReplay.valid
+		       ? (cxType)TimeType(mReplay.start, Token.Attrib.Text)
 		       : (cxType)false;
 
 	case tReplayShortText:
-		return mReplay != NULL
-		       ? (cxType)mReplay->Info()->ShortText()
+		return mReplay.valid
+		       ? (cxType)mReplay.shortText
 		       : (cxType)false;
 
 	case tReplayDescription:
-		return mReplay != NULL
-		       ? (cxType)mReplay->Info()->Description()
+		return mReplay.valid
+		       ? (cxType)mReplay.description
 		       : (cxType)false;
 
 	case tReplayLanguageCode:
-		if (mReplay) {
-			const cComponents *components = mReplay->Info()->Components();
-			if (components) {
-				int index = Token.Attrib.Number;
-
-				// don't return language-code for the video-stream
-				for (int i = 0; i < components->NumComponents(); i++) {
-					const tComponent *c = components->Component(i);
-					if (c->stream != 2) // only audio-streams
-						index++;
-					if (i == index) {
-						std::string buffer(c->language);
-						if (c->type == 1)
-							buffer.append("MONO");
-						if ((c->type == 2) || (c->type == 4))
-							buffer.append("DUAL");
-						if (c->type == 5)
-							buffer.append("DD");
-						return (cxType)buffer.c_str();
-					}
-				}
-			}
-		}
-		return false;
+		return mReplay.valid
+		       ? ComponentLanguageCode(mReplay.components, Token.Attrib.Number)
+		       : (cxType)false;
 
 	case tReplayLanguageDescription:
-		if (mReplay) {
-			const cComponents *components = mReplay->Info()->Components();
-			if (components) {
-				int index = Token.Attrib.Number;
-
-				// don't return language-code for the video-stream
-				for (int i = 0; i < components->NumComponents(); i++) {
-					const tComponent *c = components->Component(i);
-					if (c->stream != 2) // only audio-streams
-						index++;
-					if (i == index)
-						return (cxType)c->description;
-				}
-			}
-		}
-		return false;
+		return mReplay.valid
+		       ? ComponentLanguageDescription(mReplay.components, Token.Attrib.Number)
+		       : (cxType)false;
 
 	case tReplayVideoAR:
-		if (mReplay) {
-			const cComponents *components = mReplay->Info()->Components();
-			if (components) {
-				for (int i = 0; i < components->NumComponents(); i++) {
-					const tComponent *c = components->Component(i);
-					if (c->stream == 1) {
-						switch (c->type) {
-						case 1:
-							return "4:3";
-						case 3:
-							return "16:9";
-						}
-					}
-				}
-			}
-		}
-		return false;
+		return mReplay.valid
+		       ? ComponentVideoAR(mReplay.components)
+		       : (cxType)false;
 
 	case tCurrentRecording:
 		Dprintf("token attrib type is: %d, number: %d\n", Token.Attrib.Type, Token.Attrib.Number);
