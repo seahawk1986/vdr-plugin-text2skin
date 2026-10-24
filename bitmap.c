@@ -169,6 +169,13 @@ bool cText2SkinBitmap::LoadNonXpm(const char *Filename, int height, int width, i
 		}
 		mDelay = images[0].animationDelay() * 10;
 		for (it = images.begin(); it != images.end(); ++it) {
+			// scale with a Lanczos filter instead of sample() (nearest neighbour,
+			// blocky when enlarged), and before quantizing, so the filter
+			// cannot add colours beyond the requested count
+			if (height != 0 || width != 0) {
+				(*it).filterType(LanczosFilter);
+				(*it).zoom(Geometry(width,height));
+			}
 			if (colors != 0){
 				(*it).opacity(OpaqueOpacity);
 				(*it).backgroundColor( Color ( 0,0,0,0) );
@@ -176,8 +183,6 @@ bool cText2SkinBitmap::LoadNonXpm(const char *Filename, int height, int width, i
 				(*it).quantizeColors( colors );
 				(*it).quantize();
 			}
-			 if (height != 0 || width != 0)
-				(*it).sample(Geometry(width,height));
 			w = (*it).columns();
 			h = (*it).rows();
 			/*
