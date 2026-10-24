@@ -174,13 +174,31 @@ void tRecordingData::Set(const cRecording *Recording)
 	}
 }
 
+// stream_content of the component descriptor (ETSI EN 300 468), as VDR
+// stores it: 0x09 HEVC video and 0x19 AC-4 audio carry stream_content_ext
+enum {
+	scMpeg2Video = 0x01,
+	scMpeg1Audio = 0x02,
+	scAc3Audio   = 0x04,
+	scH264Video  = 0x05,
+	scHeAacAudio = 0x06,
+	scHevcVideo  = 0x09,
+	scAc4Audio   = 0x19
+};
+
+static bool IsAudio(uchar Stream)
+{
+	return Stream == scMpeg1Audio || Stream == scAc3Audio || Stream == scHeAacAudio
+	    || Stream == scAc4Audio;
+}
+
 // Number counts audio components only: every other component before the
 // wanted one moves the index on (the way text2skin always counted).
 static const tComponentData *AudioComponent(const tComponents &Components, int Number)
 {
 	int index = Number;
 	for (int i = 0; i < (int)Components.size(); i++) {
-		if (Components[i].stream != 2) // only audio-streams
+		if (!IsAudio(Components[i].stream))
 			index++;
 		if (i == index)
 			return &Components[i];
@@ -194,12 +212,16 @@ cxType ComponentLanguageCode(const tComponents &Components, int Number)
 	if (c == NULL)
 		return false;
 	std::string buffer(c->language);
-	if (c->type == 1)
-		buffer.append("MONO");
-	if ((c->type == 2) || (c->type == 4))
-		buffer.append("DUAL");
-	if (c->type == 5)
+	if (c->stream == scAc3Audio)
 		buffer.append("DD");
+	else if (c->stream == scMpeg1Audio || c->stream == scHeAacAudio) {
+		if (c->type == 1)
+			buffer.append("MONO");
+		if ((c->type == 2) || (c->type == 4))
+			buffer.append("DUAL");
+		if (c->type == 5)
+			buffer.append("DD");
+	}
 	return buffer;
 }
 
@@ -209,17 +231,18 @@ cxType ComponentLanguageDescription(const tComponents &Components, int Number)
 	return c != NULL ? (cxType)c->description : (cxType)false;
 }
 
+// "4:3" or "16:9" (wider formats count as 16:9) of the first video component
 cxType ComponentVideoAR(const tComponents &Components)
 {
 	for (int i = 0; i < (int)Components.size(); i++) {
 		const tComponentData &c = Components[i];
-		if (c.stream == 1) {
-			switch (c.type) {
-			case 1:
-				return "4:3";
-			case 3:
-				return "16:9";
-			}
+		switch (c.stream) {
+		case scMpeg2Video: // 0x01/0x05/0x09 4:3 at 25/30 Hz and HD
+			return c.type == 0x01 || c.type == 0x05 || c.type == 0x09 ? "4:3" : "16:9";
+		case scH264Video:  // 0x01/0x05 4:3 SD at 25/30 Hz
+			return c.type == 0x01 || c.type == 0x05 ? "4:3" : "16:9";
+		case scHevcVideo:  // HD and UHD are always 16:9
+			return "16:9";
 		}
 	}
 	return false;
