@@ -27,8 +27,11 @@ void cBitmapCache::ResetObject(cText2SkinBitmap *&Data)
 
 
 cText2SkinBitmap *cText2SkinBitmap::Load(const std::string &Filename, int Alpha, int height,
-                                         int width, int colors, bool Quiet) {
-	tBitmapSpec spec(Filename, Alpha, height, width, colors);
+                                         int width, int colors, bool Quiet, bool TrueColor) {
+	// colour reduction only serves the palette of a 256 colour OSD
+	if (TrueColor)
+		colors = 0;
+	tBitmapSpec spec(Filename, Alpha, height, width, colors, TrueColor);
 	Dprintf("checking image with spec %s_%d_%d_%d_%d..", Filename.c_str(),Alpha,height,width,colors);
 	std::string fname = Filename;
 
@@ -58,7 +61,7 @@ cText2SkinBitmap *cText2SkinBitmap::Load(const std::string &Filename, int Alpha,
 			if (fname.substr(len - 4, 4) == ".xpm")
 				result = res->LoadXpm(fname.c_str());
 			else {
-				result = res->LoadNonXpm(fname.c_str(), height, width, colors, Quiet);
+				result = res->LoadNonXpm(fname.c_str(), height, width, colors, Quiet, TrueColor);
 			}
 		} else if (!Quiet)
 			esyslog("ERROR: text2skin: filename %s too short to identify format", fname.c_str());
@@ -104,11 +107,26 @@ cText2SkinBitmap::~cText2SkinBitmap() {
 	for (int i = 0; i < (int)mBitmaps.size(); ++i)
 		delete mBitmaps[i];
 	mBitmaps.clear();
+	for (int i = 0; i < (int)mImages.size(); ++i)
+		delete mImages[i];
+	mImages.clear();
 }
 
 cBitmap &cText2SkinBitmap::Get(uint &UpdateIn, uint Now) {
-	if (mBitmaps.size() == 1)
-		return *mBitmaps[0];
+	NextFrame(UpdateIn, Now);
+	return *mBitmaps[mCurrent];
+}
+
+const cImage &cText2SkinBitmap::GetImage(uint &UpdateIn, uint Now) {
+	NextFrame(UpdateIn, Now);
+	return *mImages[mCurrent];
+}
+
+// animated images: advance mCurrent after the frame delay
+void cText2SkinBitmap::NextFrame(uint &UpdateIn, uint Now) {
+	int frames = IsImage() ? mImages.size() : mBitmaps.size();
+	if (frames <= 1)
+		return;
 
 	time_t upd;
 	int diff;
@@ -116,7 +134,7 @@ cBitmap &cText2SkinBitmap::Get(uint &UpdateIn, uint Now) {
 		mLastGet = Now;
 		upd = mDelay;
 	} else if ((diff = Now - mLastGet) >= mDelay) {
-		mCurrent = (mCurrent + 1) % mBitmaps.size();
+		mCurrent = (mCurrent + 1) % frames;
 		mLastGet = Now;
 		upd = mDelay - diff > 1 ? mDelay - diff : 1;
 	} else {
@@ -125,12 +143,15 @@ cBitmap &cText2SkinBitmap::Get(uint &UpdateIn, uint Now) {
 
 	if (UpdateIn == 0 || UpdateIn > (uint)upd)
 		UpdateIn = upd;
-
-	return *mBitmaps[mCurrent];
 }
 
 void cText2SkinBitmap::SetAlpha(int Alpha) {
 	if (Alpha > 0) {
+		for (int i = 0; i < (int)mImages.size(); ++i) {
+			tColor *p = (tColor *)mImages[i]->Data();
+			for (int n = mImages[i]->Width() * mImages[i]->Height(); n > 0; --n, ++p)
+				*p = (*p & 0x00FFFFFF) | ((((*p >> 24) * Alpha / 255) & 0xFF) << 24);
+		}
 		std::vector<cBitmap*>::iterator it = mBitmaps.begin();
 		for (; it != mBitmaps.end(); ++it) {
 			int count;
@@ -154,11 +175,13 @@ bool cText2SkinBitmap::LoadXpm(const char *Filename) {
 	return false;
 }
 
-bool cText2SkinBitmap::LoadNonXpm(const char *Filename, int height, int width, int colors, bool Quiet) {
+bool cText2SkinBitmap::LoadNonXpm(const char *Filename, int height, int width, int colors, bool Quiet,
+                                  bool TrueColor) {
 
 #ifdef HAVE_IMAGEMAGICK
 	std::vector<Image> images;
 	cBitmap *bmp = NULL;
+	cImage *img = NULL;
 	try {
 		int w, h;
 		std::vector<Image>::iterator it;
@@ -185,6 +208,21 @@ bool cText2SkinBitmap::LoadNonXpm(const char *Filename, int height, int width, i
 			}
 			w = (*it).columns();
 			h = (*it).rows();
+			const PixelPacket *pix = (*it).getConstPixels(0, 0, w, h);
+
+			if (TrueColor) {
+				img = new cImage(cSize(w, h));
+				tColor *dst = (tColor *)img->Data();
+				for (int n = w * h; n > 0; --n, ++pix)
+					*dst++ = (tColor(255 - pix->opacity * 255 / MaxRGB) << 24)
+					       | (tColor(pix->red   * 255 / MaxRGB) << 16)
+					       | (tColor(pix->green * 255 / MaxRGB) << 8)
+					       |  tColor(pix->blue  * 255 / MaxRGB);
+				mImages.push_back(img);
+				img = NULL;
+				continue;
+			}
+
 			/*
 			if ((*it).depth() > 8) {
 				esyslog("ERROR: text2skin: More than 8bpp images are not supported");
@@ -194,7 +232,6 @@ bool cText2SkinBitmap::LoadNonXpm(const char *Filename, int height, int width, i
 			bmp = new cBitmap(w, h, std::min(size_t((*it).depth()), size_t(8)));
 			//Dprintf("this image has %d colors\n", (*it).totalColors());
 
-			const PixelPacket *pix = (*it).getConstPixels(0, 0, w, h);
 			for (int iy = 0; iy < h; ++iy) {
 				for (int ix = 0; ix < w; ++ix) {
 					tColor col = (~int(pix->opacity * 255 / MaxRGB) << 24) | (int(pix->red * 255 / MaxRGB) << 16) | (int(pix->green * 255 / MaxRGB) << 8) | int(pix->blue * 255 / MaxRGB);
@@ -203,16 +240,19 @@ bool cText2SkinBitmap::LoadNonXpm(const char *Filename, int height, int width, i
 				}
 			}
 			mBitmaps.push_back(bmp);
+			bmp = NULL;
 		}
 	} catch (Exception &e) {
 		if (!Quiet)
 			esyslog("ERROR: text2skin: Couldn't load %s: %s", Filename, e.what());
 		delete bmp;
+		delete img;
 		return false;
 	} catch (...) {
 		if (!Quiet)
 			esyslog("ERROR: text2skin: Couldn't load %s: Unknown exception caught", Filename);
 		delete bmp;
+		delete img;
 		return false;
 	}
 	return true;
@@ -233,8 +273,17 @@ bool cText2SkinBitmap::LoadNonXpm(const char *Filename, int height, int width, i
 		image = imlib_create_cropped_scaled_image(0,0,imlib_image_get_width(), imlib_image_get_height() ,width , height);
 	}
 	imlib_context_set_image(image);
-	bmp = new cBitmap(imlib_image_get_width(), imlib_image_get_height(), 8);
 	uint8_t *data = (uint8_t*)imlib_image_get_data_for_reading_only();
+	if (TrueColor) {
+		// Imlib2 keeps ARGB pixels in host byte order, like tColor
+		cImage *img = new cImage(cSize(imlib_image_get_width(), imlib_image_get_height()), (const tColor *)data);
+		imlib_free_image();
+		imlib_context_free(ctx);
+		mImages.push_back(img);
+		delete(quantizer);
+		return true;
+	}
+	bmp = new cBitmap(imlib_image_get_width(), imlib_image_get_height(), 8);
 	if ( colors != 0 ){
         	quantizer->Quantize(data, imlib_image_get_width()* imlib_image_get_height(), colors);
 		outputImage = quantizer->OutputImage();

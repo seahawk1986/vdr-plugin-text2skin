@@ -460,8 +460,13 @@ void cText2SkinRender::DrawImage(const txPoint &Pos, const txSize &Size, const t
 	//Dprintf("trying to draw image %s to %dx%d - alpha %d\n", ImagePath(Path).c_str(), Pos.x, Pos.y, Alpha);
 
 	if ((bmp = cText2SkinBitmap::Load(ImagePath(Path), Alpha, Size.h > 1 ? Size.h : 0,
-	                                  Size.w > 1 ? Size.w : 0, Colors)) != NULL) {
+	                                  Size.w > 1 ? Size.w : 0, Colors, false,
+	                                  mScreen->IsTrueColor())) != NULL) {
 		//Dprintf("success loading image\n");
+		if (bmp->IsImage()) {
+			mScreen->DrawImage(Pos.x, Pos.y, bmp->GetImage(mUpdateIn, mNow), Mask);
+			return;
+		}
 		if (Bg) bmp->SetColor(0, *Bg);
 		if (Fg) bmp->SetColor(1, *Fg);
 		mScreen->DrawBitmap(Pos.x, Pos.y, bmp->Get(mUpdateIn, mNow), Mask);

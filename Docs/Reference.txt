@@ -126,7 +126,12 @@ Each <display>-container has to start with a definition of drawing areas.
 | y2         | NUMBER         | Position of the bottom border
 -----------------------------------------------------------------------------
 | bpp        | NUMBER         | Color depth of the drawing area
-|            |                | 4 = 16 colors, 8 = 256 colors
+|            |                | 4 = 16 colors, 8 = 256 colors,
+|            |                | 32 = true color with alpha blending. Only if
+|            |                | all windows of a display have bpp="32", they
+|            |                | are drawn as one OSD area around all windows.
+|            |                | Without a true color OSD the display falls
+|            |                | back to 256 colors.
 -----------------------------------------------------------------------------
 
  <?xml version="1.0"?>
@@ -254,7 +259,8 @@ Display an image.
 | alpha      | NUMBER         | Transparency (0-255) (see 4.2 color)
 -----------------------------------------------------------------------------
 | colors     | NUMBER         | Maximum amount of colors in the scaled image
-|            |                | (if scaling should be applied)
+|            |                | (if scaling should be applied). Ignored in a
+|            |                | true color display (bpp="32").
 -----------------------------------------------------------------------------
 | color      | STRING         | Replacement color for color 1 of the image
 |            |                | (see 4.2 color)

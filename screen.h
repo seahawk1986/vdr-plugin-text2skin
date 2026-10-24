@@ -7,6 +7,16 @@
 #include "setup.h"
 #include <vdr/osd.h>
 
+// Drawing surface of a true colour display. All objects are composed here
+// with alpha blending, Flush() hands only the changed rectangle to the OSD.
+class cText2SkinCanvas: public cPixmapMemory {
+public:
+	cText2SkinCanvas(const cSize &Size): cPixmapMemory(0, cRect(cPoint(0, 0), Size)) {}
+	tColor *Pixels(void) { return (tColor *)Data(); }
+	void MarkDirty(const cRect &Rect) { MarkDrawPortDirty(Rect); }
+	void SetClean(void) { cPixmap::SetClean(); }
+};
+
 class cText2SkinScreen {
 	/* Skin Editor */
 	friend class VSkinnerScreen;
@@ -17,6 +27,13 @@ private:
 	cBitmap *mRegions[MAXOSDAREAS];
 	bool     mOffScreen;
 	int      mNumRegions;
+
+	// true colour mode: one OSD area around all windows, drawn via mCanvas
+	cText2SkinCanvas *mCanvas;
+	cPoint            mOrigin;
+
+	void BlendPixels(int x, int y, int Width, int Height, const tColor *Colors,
+	                 const cBitmap *Bitmap, const tColor *ColorMask);
 
 protected:
 	static void DrawBitmapOverlay(cBitmap &Dest, int x, int y, cBitmap &Bitmap,
@@ -30,6 +47,7 @@ public:
 
 	void Clear(void);
 	void DrawBitmap(int x, int y, const cBitmap &Bitmap, const tColor *ColorMask = NULL);
+	void DrawImage(int x, int y, const cImage &Image, const tColor *ColorMask = NULL);
 	void DrawRectangle(int x1, int y1, int x2, int y2, tColor Color);
 	void DrawText(int x, int y, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font,
 	              int Width = 0, int Height = 0, int Alignment = taDefault);
@@ -39,6 +57,7 @@ public:
 	void Flush(void);
 
 	bool IsOpen(void) const { return mOsd != NULL; }
+	bool IsTrueColor(void) const { return mCanvas != NULL; }
 };
 
 #endif // VDR_TEXT2SKIN_SCREEN_H
