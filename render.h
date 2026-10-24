@@ -123,7 +123,14 @@ protected:
 
 	// functions for display renderer to control behaviour
 	void Flush(bool Force = false);
-	void SetDirty(cxRefresh::eRefreshType type = cxRefresh::all) { mDirty |= 1<<type; }
+	// Called with the update lock held. New data means the cached tokens are
+	// stale: the update thread may draw before VDR calls Flush(), e.g. for a
+	// marquee, and must not show the old channel's tokens then.
+	void SetDirty(cxRefresh::eRefreshType type = cxRefresh::all) {
+		mDirty |= 1<<type;
+		if (type != cxRefresh::timeout)
+			mTokenCache.clear();
+	}
 	void Scroll(bool Up, bool Page) { if (mScroller != NULL) mScroller->Scroll(Up, Page); }
 	void Clear(void) { DELETENULL(mScroller); }
 	cSkin *Fallback(void) const { return mFallback; }
