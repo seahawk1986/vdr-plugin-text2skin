@@ -223,13 +223,25 @@ bool cText2SkinBitmap::LoadNonXpm(const char *Filename, int height, int width, i
 			const PixelPacket *pix = (*it).getConstPixels(0, 0, w, h);
 
 			if (TrueColor) {
+				// A Q16 build scales with 16 bits per channel. Cutting that to
+				// 8 bits turns smooth gradients into visible bands, an ordered
+				// dither keeps the steps in between. With Q8 nothing changes.
+				static const int bayer[4][4] = {
+					{  0,  8,  2, 10 }, { 12,  4, 14,  6 },
+					{  3, 11,  1,  9 }, { 15,  7, 13,  5 } };
+				const uint64_t scale = (uint64_t)MaxRGB * 16;
 				img = new cImage(cSize(w, h));
 				tColor *dst = (tColor *)img->Data();
-				for (int n = w * h; n > 0; --n, ++pix)
-					*dst++ = (tColor(255 - pix->opacity * 255 / MaxRGB) << 24)
-					       | (tColor(pix->red   * 255 / MaxRGB) << 16)
-					       | (tColor(pix->green * 255 / MaxRGB) << 8)
-					       |  tColor(pix->blue  * 255 / MaxRGB);
+				for (int iy = 0; iy < h; ++iy) {
+					for (int ix = 0; ix < w; ++ix, ++pix) {
+						uint64_t t = (2 * bayer[iy & 3][ix & 3] + 1) * (uint64_t)MaxRGB / 2;
+						tColor r = ((uint64_t)pix->red   * 255 * 16 + t) / scale;
+						tColor g = ((uint64_t)pix->green * 255 * 16 + t) / scale;
+						tColor b = ((uint64_t)pix->blue  * 255 * 16 + t) / scale;
+						tColor a = 255 - ((uint64_t)pix->opacity * 255 + MaxRGB / 2) / MaxRGB;
+						*dst++ = (a << 24) | (r << 16) | (g << 8) | b;
+					}
+				}
 				mImages.push_back(img);
 				img = NULL;
 				continue;
