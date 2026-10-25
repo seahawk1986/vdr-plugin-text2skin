@@ -1,6 +1,14 @@
 VDR Plugin 'text2skin' Revision History
 ---------------------------------------
 
+2026-10-25: Version 1.4.1
+
+- Makefile in the style of VDR's plugin template: flags, directories and API
+  version from VDR's pkg-config file, "make install" with DESTDIR, no
+  hard-coded -O3.
+- Remove Docs/html, the links pointed to wikis that no longer exist.
+- Bug report address of the translation template points to GitHub.
+
 2026-10-24: Version 1.4.0
 
 - Drop legacy code prio VDR 2.2.0
