@@ -1,7 +1,7 @@
 VDR Plugin 'text2skin' Revision History
 ---------------------------------------
 
-2026-11-xx: Version 1.4.2
+2026-11-02: Version 1.4.2
 
 - A message during replay is shown again when only the mode is displayed
   (replaySmall), e.g. "Editing process started": VDR 2.8 puts it into the
