@@ -72,6 +72,7 @@ private:
 	bool                mRetryAll;
 
 	cxType GetDiskToken(const txToken &Token);
+	eOsdError SetupAreas(void);
 
 protected:
 	// Update thread
@@ -134,6 +135,7 @@ protected:
 	void Scroll(bool Up, bool Page) { if (mScroller != NULL) mScroller->Scroll(Up, Page); }
 	void Clear(void) { DELETENULL(mScroller); }
 	cSkin *Fallback(void) const { return mFallback; }
+	bool SwitchDisplay(cxDisplay::eType Type);
 
 public:
 	cText2SkinRender(cText2SkinLoader *Loader, cxDisplay::eType Section,

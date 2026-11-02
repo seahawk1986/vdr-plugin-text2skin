@@ -10,7 +10,8 @@ cxDisplay::cxDisplay(cxSkin *parent):
 		mSkin(parent),
 		mType((eType)__COUNT_DISPLAY__),
 		mNumWindows(0),
-		mRefreshDefault(NULL)
+		mRefreshDefault(NULL),
+		mUsesMessage(false)
 {
 }
 

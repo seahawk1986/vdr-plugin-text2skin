@@ -91,6 +91,9 @@ private:
 	std::string   mButtonGreen;
 	std::string   mButtonYellow;
 	std::string   mButtonBlue;
+	// replaySmall without message objects shows a message with the skin's
+	// message display (VDR 2.8 shows e.g. "Editing process started" there)
+	bool          mMessageDisplay;
 
 protected:
 	virtual cxType GetTokenData(const txToken &Token);

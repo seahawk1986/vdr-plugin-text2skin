@@ -16,6 +16,7 @@
 #include <vdr/menu.h>
 #include <vdr/videodir.h>
 #include <vdr/skinclassic.h>
+#include <algorithm>
 
 using std::string;
 
@@ -67,9 +68,26 @@ cText2SkinRender::cText2SkinRender(cText2SkinLoader *Loader, cxDisplay::eType Di
 	mSkin->SetBase(); // refresh base coords in case the setup changed
 	mBaseSize = mSkin->BaseSize();
 
-	eOsdError res;
-	tArea areas[mDisplay->NumWindows()];
-	for (int i = 0; i < mDisplay->NumWindows(); ++i) {
+	if (SetupAreas() != oeOk) {
+		DELETENULL(mScreen);
+		mFallback = new cSkinClassic();
+		return;
+	}
+
+	if (!OffScreen) {
+		UpdateLock();
+		Start();
+		mStarted.Wait(mDoUpdateMutex);
+		UpdateUnlock();
+	}
+}
+
+// gives the OSD the windows of mDisplay
+eOsdError cText2SkinRender::SetupAreas(void)
+{
+	tArea areas[MAXOSDAREAS];
+	int num = std::min(mDisplay->NumWindows(), MAXOSDAREAS);
+	for (int i = 0; i < num; ++i) {
 		txPoint pos1 = Transform(mDisplay->Windows()[i].pos1);
 		txPoint pos2 = Transform(mDisplay->Windows()[i].pos2, true);
 		areas[i].x1 = mSkin->BaseOffset().x + pos1.x;
@@ -80,7 +98,7 @@ cText2SkinRender::cText2SkinRender(cText2SkinLoader *Loader, cxDisplay::eType Di
 		Dprintf("setting area: %d, %d, %d, %d, %d\n", areas[i].x1, areas[i].y1, areas[i].x2,
 		        areas[i].y2, areas[i].bpp);
 	}
-	res = mScreen->SetAreas(areas, mDisplay->NumWindows());
+	eOsdError res = mScreen->SetAreas(areas, num);
 
 	if (res != oeOk) {
 		const char *emsg = NULL;
@@ -102,18 +120,35 @@ cText2SkinRender::cText2SkinRender(cText2SkinLoader *Loader, cxDisplay::eType Di
 		default:
 			break;
 		}
-		esyslog("ERROR: text2skin: OSD provider can't handle skin: %s\n", emsg);
-		DELETENULL(mScreen);
-		mFallback = new cSkinClassic();
-		return;
+		esyslog("ERROR: text2skin: OSD provider can't handle %s display: %s\n",
+		        cxDisplay::GetType(mDisplay->Type()).c_str(), emsg);
 	}
+	return res;
+}
 
-	if (!OffScreen) {
-		UpdateLock();
-		Start();
-		mStarted.Wait(mDoUpdateMutex);
-		UpdateUnlock();
+// Shows another display of the skin in the same OSD, e.g. the message display
+// while a replay display without message objects has a message. Called with
+// the update lock held.
+bool cText2SkinRender::SwitchDisplay(cxDisplay::eType Type)
+{
+	cxDisplay *display = mSkin->Get(Type);
+	if (display == NULL || mScreen == NULL)
+		return false;
+	if (display == mDisplay)
+		return true;
+
+	cxDisplay *old = mDisplay;
+	mDisplay = display;
+	if (SetupAreas() != oeOk) {
+		mDisplay = old;
+		SetupAreas();
+		return false;
 	}
+	DELETENULL(mScroller);
+	mTokenCache.clear();
+	mFirst = true; // the new windows are empty, draw everything
+	SetDirty(cxRefresh::all);
+	return true;
 }
 
 cText2SkinRender::~cText2SkinRender()

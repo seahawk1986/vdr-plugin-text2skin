@@ -34,6 +34,7 @@ private:
 	int       mNumMarquees;
 	cxObjects mObjects;
 	cxRefresh mRefreshDefault;
+	bool      mUsesMessage; // an object of this display shows a message token
 
 public:
 	cxDisplay(cxSkin *Parent);
@@ -45,6 +46,8 @@ public:
 	const txWindow  *Windows(void)    const { return mWindows; }
 	int              NumWindows(void) const { return mNumWindows; }
 	cxSkin          *Skin(void)       const { return mSkin; }
+	bool             UsesMessage(void) const { return mUsesMessage; }
+	void             SetUsesMessage(void)    { mUsesMessage = true; }
 
 	uint             Objects(void)    const { return mObjects.size(); }
 	cxObject        *GetObject(int n) const { return mObjects[n]; }

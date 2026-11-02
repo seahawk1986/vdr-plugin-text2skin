@@ -1,6 +1,14 @@
 VDR Plugin 'text2skin' Revision History
 ---------------------------------------
 
+2026-11-xx: Version 1.4.2
+
+- A message during replay is shown again when only the mode is displayed
+  (replaySmall), e.g. "Editing process started": VDR 2.8 puts it into the
+  replay display, not into a message window of its own. If the replaySmall
+  display of a skin has no message objects, the skin's message display is
+  shown in its place while the message is there.
+
 2026-10-25: Version 1.4.1
 
 - Makefile in the style of VDR's plugin template: flags, directories and API

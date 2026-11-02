@@ -419,7 +419,8 @@ cText2SkinDisplayReplay::cText2SkinDisplayReplay(cText2SkinLoader *Loader, bool 
 		mButtonRed(""),
 		mButtonGreen(""),
 		mButtonYellow(""),
-		mButtonBlue("")
+		mButtonBlue(""),
+		mMessageDisplay(ModeOnly && mDisplay != NULL && !mDisplay->UsesMessage())
 {
 }
 
@@ -511,6 +512,8 @@ void cText2SkinDisplayReplay::SetMessage(eMessageType Type, const char *Text)
 	if (mType != Type || mText != Text) {
 		mType = Type;
 		mText = Text;
+		if (mMessageDisplay)
+			SwitchDisplay(*Text ? cxDisplay::message : cxDisplay::replaySmall);
 		SetDirty(cxRefresh::all);
 	}
 	UpdateUnlock();

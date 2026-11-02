@@ -28,6 +28,13 @@ eOsdError cText2SkinScreen::SetAreas(const tArea *Areas, int NumAreas)
 	if (NumAreas < 1 || NumAreas > MAXOSDAREAS)
 		return oeTooManyAreas;
 
+	// called again when a display switches its windows (replay message)
+	for (int i = 0; i < mNumRegions; ++i)
+		delete mRegions[i];
+	mNumRegions = 0;
+	DELETENULL(mCanvas);
+	mOrigin = cPoint(0, 0);
+
 	// A skin asks for true colour with bpp="32" on all windows of a display.
 	// VDR handles true colour as a single area, so it covers all windows.
 	bool trueColor = !mOffScreen;

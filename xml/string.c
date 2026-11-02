@@ -1,6 +1,7 @@
 //								-*- c++ -*-
 
 #include "xml/string.h"
+#include "xml/display.h"
 #include "render.h"
 
 static const char *Tokens[__COUNT_TOKEN__] = {
@@ -176,6 +177,8 @@ bool cxString::Parse(const std::string &Text, bool Translate)
 							&& memcmp(last, Tokens[i], ptr - last) == 0) {
 						txToken token((exToken)i, offset, "");
 						mTokens.push_back(token);
+						if (i >= tMessage && i <= tMessageError && mObject->Display() != NULL)
+							mObject->Display()->SetUsesMessage();
 						break;
 					}
 				}
